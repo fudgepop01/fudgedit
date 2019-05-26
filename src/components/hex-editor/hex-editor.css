@@ -1,0 +1,74 @@
+
+.container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 100vw;
+  height: 100vh;
+}
+
+.hex {
+  font-family: 'Sourcecode Pro', Courier, monospace;
+  font-size: 15px;
+}
+
+.hexView,
+.asciiView,
+.lineLabels {
+  display: inline-block;
+  padding: 0 10px;
+  white-space: pre;
+  position: relative;
+}
+
+.hexLine span,
+.charLine span {
+  position: relative;
+}
+
+.hexLine span {
+  padding: 0 5px;
+}
+.hexLine span:not(:last-child).padByte {
+  /* padding-right: 15px; */
+  border-right: 1px solid #888;
+}
+
+.hexLine span {
+  cursor: default;
+  user-select: none;
+}
+
+.charLine span.selected,
+.hexLine span.selected {
+  background-color: #DDDDFF;
+}
+
+.charLine span.cursor,
+.hexLine span.cursor {
+  background-color: #008;
+  color: #FFF;
+}
+
+.charLine span.added,
+.hexLine span.added {
+  color: red;
+}
+
+.hexLine span:hover {
+  background-color: #000;
+  color: #FFF;
+}
+
+.hexLine:nth-child(2n-1),
+.charLine:nth-child(2n-1),
+.lineLabel:nth-child(2n-1) {
+  background-color: #EEFFFF;
+}
+
+.charLine.selected,
+.hexLine.selected {
+  background-color: #FFA;
+}
+
