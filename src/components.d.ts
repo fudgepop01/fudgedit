@@ -17,6 +17,7 @@ export namespace Components {
     'bytesPerGroup': number;
     'bytesPerLine': number;
     'bytesUntilForcedLine': number;
+    'editType': "insert" | "overwrite" | "readonly";
     'maxLines': number;
     'mode': "region" | "edit" | "noregion";
     'regionDepth': number;
@@ -27,6 +28,7 @@ export namespace Components {
     'bytesPerGroup'?: number;
     'bytesPerLine'?: number;
     'bytesUntilForcedLine'?: number;
+    'editType'?: "insert" | "overwrite" | "readonly";
     'maxLines'?: number;
     'mode'?: "region" | "edit" | "noregion";
     'regionDepth'?: number;

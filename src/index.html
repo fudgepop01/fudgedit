@@ -4,30 +4,120 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0">
   <title>Stencil Component Starter</title>
-  <script src="/build/mycomponent.js"></script>
+  <script src="/build/hex-editor.js"></script>
+
+  <link href="https://fonts.googleapis.com/css?family=Open+Sans&display=swap" rel="stylesheet">
+  <style>
+    body {
+      height: 100vh;
+      width: 100vw;
+
+      position: relative;
+      display: grid;
+      grid-auto-rows: 100%;
+      grid-template-columns: 350px auto;
+      overflow: scroll;
+    }
+
+    #parameters {
+      position: relative;
+      height: 100%;
+      padding: 10px;
+      font-family: 'open sans', sans-serif;
+
+      box-shadow: 2px 0 2px black;
+    }
+
+    #parameters .controls {
+      display: grid;
+      grid-auto-rows: 40px;
+      grid-template-columns: 50% 50%;
+      align-items: center;
+      padding: 0px 20px;
+    }
+
+    #parameters .controls > *:nth-child(2n+1) {
+      justify-self: right;
+      padding-right: 15px;
+    }
+
+    #parameters .controls > input {
+      height: 20px;
+      border-radius: 5px;
+      border: 1px solid black;
+    }
+
+    #showcase {
+      height: 100%;
+
+      display: flex;
+      justify-content: left;
+      align-items: center;
+
+      overflow: scroll;
+    }
+
+    #credit {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+
+      width: 330px;
+      height: 100px;
+      color: white;
+      background-color: black;
+      padding: 10px;
+    }
+
+    a {
+      color: white;
+    }
+
+  </style>
 
 </head>
 <body style="margin: 0">
 
-  <div class="input-group">
-    <label for="maxlines">max lines:</label>
-    <input type="number" name="maxlines" id="maxlines" value="0" onchange="document.getElementById('editor').setAttribute('maxlines', event.target.value)">
+  <div id="parameters">
+    <h3>Parameters:</h3>
+    <div id="credit"> Created by Dominick Reba <br/> <a href="https://twitter.com/fudgepop01">@fudgepop01</a> </div>
+    <div class="controls">
+      <label for="maxlines">max lines:</label>
+      <input type="number" name="maxlines" id="maxlines" value="30" onchange="document.getElementById('editor').setAttribute('maxlines', event.target.value)">
 
-    <label for="bytesPerLine">bytes per line:</label>
-    <input type="number" name="bytesPerLine" id="bytesPerLine" value="0" onchange="document.getElementById('editor').setAttribute('bytesPerLine', event.target.value)">
+      <label for="bytesPerLine">bytes per line:</label>
+      <input type="number" name="bytesPerLine" id="bytesPerLine" value="16" onchange="document.getElementById('editor').setAttribute('bytesPerLine', event.target.value)">
 
-    <label for="bytesPerGroup">bytes per group:</label>
-    <input type="number" name="bytesPerGroup" id="bytesPerLine" value="0" onchange="document.getElementById('editor').setAttribute('bytesPerGroup', event.target.value)">
+      <label for="bytesPerGroup">bytes per group:</label>
+      <input type="number" name="bytesPerGroup" id="bytesPerLine" value="4" onchange="document.getElementById('editor').setAttribute('bytesPerGroup', event.target.value)">
 
-    <label for="asciiInline">ascii inline?:</label>
-    <input type="number" name="asciiInline" id="asciiInline" value="0" min="0" max="1" onchange="document.getElementById('editor').setAttribute('asciiinline', event.target.value === '1')">
+      <label for="asciiInline">ascii inline?:</label>
+      <input type="number" name="asciiInline" id="asciiInline" value="0" min="0" max="1" onchange="document.getElementById('editor').setAttribute('asciiinline', event.target.value === '1')">
 
-    <label for="regionDepth">region depth:</label>
-    <input type="number" name="regionDepth" id="regionDepth" value="0" onchange="document.getElementById('editor').setAttribute('regionDepth', event.target.value)">
+      <label for="regionDepth">region depth:</label>
+      <input type="number" name="regionDepth" id="regionDepth" value="2" onchange="document.getElementById('editor').setAttribute('regionDepth', event.target.value)">
+
+      <label for="mode">mode:</label>
+      <select id="mode" onchange="document.getElementById('editor').setAttribute('mode', event.target.value)" >
+        <option value="region" selected>region</option>
+        <option value="edit">edit</option>
+        <option value="noregion">no region</option>
+      </select>
+
+      <label for="editType">edit type:</label>
+      <select id="editType" onchange="document.getElementById('editor').setAttribute('edittype', event.target.value)" >
+        <option value="insert">insert</option>
+        <option value="overwrite" selected>overwrite</option>
+        <option value="readonly">read-only</option>
+      </select>
+    </div>
   </div>
 
-  <my-tooltip id="tooltip"></my-tooltip>
-  <hex-editor id="editor" first="Stencil"></hex-editor>
+  <div id="showcase">
+    <my-tooltip id="tooltip"></my-tooltip>
+    <div id="MEASURE" class="hex" style="position: absolute; visibility: hidden; padding: 0 5px; height: 17px; display: inline-block;">AB</div>
+    <hex-editor id="editor"></hex-editor>
+  </div>
 
 </body>
 </html>

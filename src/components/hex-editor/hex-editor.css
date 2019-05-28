@@ -1,11 +1,8 @@
-
 .container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
+  overflow: scroll;
+  position: relative;
   width: 100vw;
-  height: 100vh;
+  min-height: 100%;
 }
 
 .hex {
@@ -25,6 +22,12 @@
 .hexLine span,
 .charLine span {
   position: relative;
+  height: 17px;
+  display: inline-block;
+}
+
+.lineLabel {
+  height: 17px;
 }
 
 .hexLine span {
@@ -33,7 +36,7 @@
 }
 .hexLine span:not(:last-child).padByte::after {
   /* padding-right: 15px; */
-  background-color: #AAA;
+  background-color: #0006;
   position: absolute;
   width: 2px;
   height: 100%;

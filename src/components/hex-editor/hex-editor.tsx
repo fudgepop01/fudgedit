@@ -25,8 +25,9 @@ export class HexEditor {
   @Prop() bytesUntilForcedLine: number = 0;
   @Prop({attr: 'asciiinline'}) asciiInline: boolean = false;
   @Prop({attr: 'bytespergroup'}) bytesPerGroup: number = 4;
-  @Prop() mode: "region" | "edit" | "noregion" = "region";
-  @Prop({attr: 'regiondepth'}) regionDepth: number = 3;
+  @Prop({attr: 'mode'}) mode: "region" | "edit" | "noregion" = "region";
+  @Prop({attr: 'edittype'}) editType: "insert" | "overwrite" | "readonly" = "overwrite";
+  @Prop({attr: 'regiondepth'}) regionDepth: number = 2;
 
   @Prop() regions: IRegion[] = [{
     start: 0x0,
@@ -244,7 +245,7 @@ export class HexEditor {
               document.documentElement.style.setProperty('--mouse-x', event.clientX);
               document.documentElement.style.setProperty('--mouse-y', event.clientY);
               document.getElementById('tooltip').setAttribute('active', true)
-              document.getElementById('tooltip').setAttribute('complex', '${JSON.stringify({...region, subRegions: null})}');
+              document.getElementById('tooltip').setAttribute('complex', '${JSON.stringify({...region, subRegions: region.subRegions ? region.subRegions.map(sr => sr.name) : null})}');
 
               setTimeout(() => {window.canUpdateMousemove = true}, 50);
             }
@@ -268,38 +269,21 @@ export class HexEditor {
     for (const [i, region] of this.regions.entries()) {
       buildRegion(region, 0, i);
     }
-
+    // style={{width: this.bytesPerLine * scaleWidth, height: this.maxLines * scaleHeight}}
     return {
       lineViews,
       charViews,
       lineLabels,
-      regionMarkers: <svg viewbox={`0 0 ${this.bytesPerLine * scaleWidth} ${this.maxLines * scaleHeight}`} style={{width: this.bytesPerLine * scaleWidth, height: this.maxLines * scaleHeight}}>{regionMarkers}</svg>
-    }
-  }
-
-  // throttles the event to ensure it doesn't update hundreds of times per second
-  canUpdate: boolean = true;
-  displayTooltip(evt: MouseEvent) {
-    console.log(this.canUpdate);
-    if (this.canUpdate) {
-
-      console.log(evt);
-
-      this.canUpdate = false;
-      setTimeout(() => {this.canUpdate = true}, 100)
+      regionMarkers: <svg viewbox={`0 0 ${this.bytesPerLine * scaleWidth} ${this.maxLines * scaleHeight}`} width={`${this.bytesPerLine * scaleWidth}`} height={`${this.maxLines * scaleHeight}`}>{regionMarkers}</svg>
     }
   }
 
   edit(evt: KeyboardEvent) {
+    if (this.editType === 'readonly') return;
     const editController = this.editController;
-    if (!editController.inProgress) editController.initEdit(this.cursor, "overwrite");
+    if (!editController.inProgress) editController.initEdit(this.cursor, this.editType);
     editController.buildEdit(evt)
   }
-
-  // moveCursor(location: number, offset: "relative" | "absolute") {
-  //   if (offset === "relative") this.cursor += location;
-  //   else this.cursor = location;
-  // }
 
   /**
    * displays the full hexidecimal view
@@ -318,18 +302,11 @@ export class HexEditor {
         onKeyDown={(evt) => this.edit(evt)}
       >
         <div id="MEASURE" style={{position: 'absolute', visibility: 'hidden', padding: '0 5px'}}>AB</div>
-        <div id="TOOLTIP">
-          <span class="title"></span>
-          <span class="details"></span>
-          <hr/>
-          <span class="start"></span>
-          <span class="end"></span>
-        </div>
         <div class="lineLabels">
           {lineLabels}
         </div>
         <div class="hexView">
-          <div class="highlight" style={{position: 'absolute', top: '0', zIndex: '3'}}>
+          <div class="highlight" style={{position: 'absolute', top: '0', display: this.mode === 'noregion' ? 'none' : 'block', zIndex: this.mode === 'region' ? '3' : '0'}}>
             {regionMarkers}
           </div>
           <div class="main">
@@ -348,17 +325,18 @@ export class HexEditor {
    * @param evt the mousedown event
    */
   beginSelection(evt: any) {
+    console.log(evt.composedPath());
     this.tempSelection =
       this.lineNumber * this.bytesPerLine +
-      [...evt.path[2].children].indexOf(evt.path[1]) * this.bytesPerLine +
-      [...evt.path[1].children].indexOf(evt.path[0]);
+      [...evt.composedPath()[2].children].indexOf(evt.composedPath()[1]) * this.bytesPerLine +
+      [...evt.composedPath()[1].children].indexOf(evt.composedPath()[0]);
   }
 
   endSelection(evt: any) {
     const chosen =
       this.lineNumber * this.bytesPerLine +
-      [...evt.path[2].children].indexOf(evt.path[1]) * this.bytesPerLine +
-      [...evt.path[1].children].indexOf(evt.path[0]);
+      [...evt.composedPath()[2].children].indexOf(evt.composedPath()[1]) * this.bytesPerLine +
+      [...evt.composedPath()[1].children].indexOf(evt.composedPath()[0]);
 
     if (this.tempSelection > chosen) {
       this.selection = {
@@ -386,8 +364,11 @@ export class HexEditor {
    *
    * @memberof MyComponent
    */
-  scroll = (evt: MouseWheelEvent) => {
-    let scaledVelocity = Math.ceil(evt.deltaY / 2);
+  scroll = (evt: WheelEvent) => {
+    evt.preventDefault();
+    console.log(evt.deltaY);
+
+    let scaledVelocity = (evt.deltaY % 1 !== 0) ? Math.ceil(evt.deltaY / 100) : Math.ceil(evt.deltaY / 2);
     if (scaledVelocity === -0) scaledVelocity -= 1;
 
     if (this.lineNumber + scaledVelocity < 0) this.lineNumber = 0;
@@ -408,7 +389,7 @@ export class HexEditor {
   }
 
   _toggleScrollListener(evt: MouseEvent) {
-    if (evt.type === "mouseenter") (evt.target as HTMLElement).addEventListener("wheel", this.scroll, {passive: true});
+    if (evt.type === "mouseenter") (evt.target as HTMLElement).addEventListener("wheel", this.scroll, {passive: false});
     else (evt.target as HTMLElement).removeEventListener("wheel", this.scroll, false);
   }
 }
