@@ -20,17 +20,45 @@ export class HexEditor {
 
   editController: editController;
 
-  @Prop() maxLines: number = 30;
-  @Prop() bytesPerLine: number = 16;
+  @Prop({attr: 'maxlines'}) maxLines: number = 30;
+  @Prop({attr: 'bytesperline'}) bytesPerLine: number = 16;
   @Prop() bytesUntilForcedLine: number = 0;
-  @Prop() asciiInline: boolean = false;
-  @Prop() bytesPerGroup: number = 4;
+  @Prop({attr: 'asciiinline'}) asciiInline: boolean = false;
+  @Prop({attr: 'bytespergroup'}) bytesPerGroup: number = 4;
+  @Prop() mode: "region" | "edit" | "noregion" = "region";
+  @Prop({attr: 'regiondepth'}) regionDepth: number = 3;
+
   @Prop() regions: IRegion[] = [{
-    start: 42,
-    end: 205
-  }, {
-    start: 250,
-    end: 369
+    start: 0x0,
+    end: 0x40,
+    name: 'start',
+    description: 'the start of the file. Hopefully this works',
+    subRegions: [{
+      start: 0x0,
+      end: 0x20,
+      subRegions: [{
+        start: 0x0,
+        end: 0x8
+      }, {
+        start: 0x10,
+        end: 0x16
+      }]
+    }, {
+      start: 0x20,
+      end: 0x40
+    }]
+  },
+  {
+    start: 0x40,
+    end: 0x69
+  },
+  {
+    start: 0x269,
+    end: 0x369
+  },
+  {
+    start: 0x369,
+    end: 0x400
   }];
 
   // what is initially seen when a file is uploaded
@@ -173,28 +201,72 @@ export class HexEditor {
     const scaleHeight = document.getElementById('MEASURE').clientHeight;
 
     const regionMarkers = [];
-    for (const region of this.regions) {
 
-      const s = region.start % this.bytesPerLine;
-      const l = Math.floor((region.end - region.start) / this.bytesPerLine);
-      const e = region.end % this.bytesPerLine;
+    const buildRegion = (region: IRegion, depth = 0, index?: number) => {
+      if (depth === 0) {
+        if (region.end < start || region.start > start + this.maxLines * this.bytesPerLine) return;
+      }
 
-      if (region.end < start || region.start > start + this.maxLines * this.bytesPerLine) continue;
+      if (depth === this.regionDepth) return;
+      // if regions don't work right in the future then the if condition below is the reason why
+      else if (region.subRegions && depth + 1 !== this.regionDepth) {
+        for (const [i, r] of region.subRegions.entries()) buildRegion(r, depth + 1, i);
+      }
+      else {
+        // start / end offsets
+        const s = region.start % this.bytesPerLine;
+        const e = region.end % this.bytesPerLine;
 
-      const offset = (Math.floor(region.start / this.bytesPerLine) - lineNumber) * scaleHeight;
+        // l is the "height" of the region. It was a bit confusing, so allow me to explain:
+        // instead of only taking into account the start and end of the region's offsets,
+        // what we ACTUALLY want is the start and end while taking into account the offset
+        // provided by 's'
+        const l = Math.floor((region.end - region.start + s) / this.bytesPerLine);
 
-      regionMarkers.push((
-        <polygon points={`
-          0,${scaleHeight + offset}
-          ${s * scaleWidth},${scaleHeight + offset}
-          ${s * scaleWidth},${offset}
-          ${this.bytesPerLine * scaleWidth},${offset}
-          ${this.bytesPerLine * scaleWidth},${l * scaleHeight + offset}
-          ${e * scaleWidth},${l * scaleHeight + offset}
-          ${e * scaleWidth},${(l+1) * scaleHeight + offset}
-          0,${(l+1)*scaleHeight + offset}
-          `} fill="#7F7" stroke="none"/>
-      ))
+        if (region.end < start || region.start > start + this.maxLines * this.bytesPerLine) return;
+
+        const offset = Math.floor(region.start / this.bytesPerLine) - lineNumber;
+
+        const getColor = {
+          0: ['#77F', '#BBF'],
+          1: ['#F77', '#FBB'],
+          2: ['#7D7', '#BDB']
+        }
+
+        regionMarkers.push((
+          <polygon
+          onmousemove={`
+            if (window.canUpdateMousemove === undefined) {
+              window.canUpdateMousemove = true;
+            }
+            if (window.canUpdateMousemove) {
+              window.canUpdateMousemove = false;
+              document.documentElement.style.setProperty('--mouse-x', event.clientX);
+              document.documentElement.style.setProperty('--mouse-y', event.clientY);
+              document.getElementById('tooltip').setAttribute('active', true)
+              document.getElementById('tooltip').setAttribute('complex', '${JSON.stringify({...region, subRegions: null})}');
+
+              setTimeout(() => {window.canUpdateMousemove = true}, 50);
+            }
+          `}
+          onmouseleave={`document.getElementById('tooltip').setAttribute('active', false)`}
+          class="region"
+          points={`
+            0,${(1 + offset) * scaleHeight}
+            ${s * scaleWidth},${(1 + offset) * scaleHeight}
+            ${s * scaleWidth},${offset * scaleHeight}
+            ${this.bytesPerLine * scaleWidth},${offset * scaleHeight}
+            ${this.bytesPerLine * scaleWidth},${(l + offset) * scaleHeight}
+            ${e * scaleWidth},${(l + offset) * scaleHeight}
+            ${e * scaleWidth},${(l + offset + 1) * scaleHeight}
+            0,${(l+1 + offset) * scaleHeight}
+            `} fill={region.color || getColor[depth % 3][index % 2]} stroke="none"/>
+        ))
+      }
+    }
+
+    for (const [i, region] of this.regions.entries()) {
+      buildRegion(region, 0, i);
     }
 
     return {
@@ -202,6 +274,19 @@ export class HexEditor {
       charViews,
       lineLabels,
       regionMarkers: <svg viewbox={`0 0 ${this.bytesPerLine * scaleWidth} ${this.maxLines * scaleHeight}`} style={{width: this.bytesPerLine * scaleWidth, height: this.maxLines * scaleHeight}}>{regionMarkers}</svg>
+    }
+  }
+
+  // throttles the event to ensure it doesn't update hundreds of times per second
+  canUpdate: boolean = true;
+  displayTooltip(evt: MouseEvent) {
+    console.log(this.canUpdate);
+    if (this.canUpdate) {
+
+      console.log(evt);
+
+      this.canUpdate = false;
+      setTimeout(() => {this.canUpdate = true}, 100)
     }
   }
 
@@ -233,11 +318,18 @@ export class HexEditor {
         onKeyDown={(evt) => this.edit(evt)}
       >
         <div id="MEASURE" style={{position: 'absolute', visibility: 'hidden', padding: '0 5px'}}>AB</div>
+        <div id="TOOLTIP">
+          <span class="title"></span>
+          <span class="details"></span>
+          <hr/>
+          <span class="start"></span>
+          <span class="end"></span>
+        </div>
         <div class="lineLabels">
           {lineLabels}
         </div>
         <div class="hexView">
-          <div class="highlight" style={{position: 'absolute', top: '0'}}>
+          <div class="highlight" style={{position: 'absolute', top: '0', zIndex: '3'}}>
             {regionMarkers}
           </div>
           <div class="main">

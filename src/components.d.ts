@@ -18,6 +18,8 @@ export namespace Components {
     'bytesPerLine': number;
     'bytesUntilForcedLine': number;
     'maxLines': number;
+    'mode': "region" | "edit" | "noregion";
+    'regionDepth': number;
     'regions': IRegion[];
   }
   interface HexEditorAttributes extends StencilHTMLAttributes {
@@ -26,17 +28,32 @@ export namespace Components {
     'bytesPerLine'?: number;
     'bytesUntilForcedLine'?: number;
     'maxLines'?: number;
+    'mode'?: "region" | "edit" | "noregion";
+    'regionDepth'?: number;
     'regions'?: IRegion[];
+  }
+
+  interface MyTooltip {
+    'active': boolean;
+    'data': {[key: string]: string} | string;
+    'simpleText': string;
+  }
+  interface MyTooltipAttributes extends StencilHTMLAttributes {
+    'active'?: boolean;
+    'data'?: {[key: string]: string} | string;
+    'simpleText'?: string;
   }
 }
 
 declare global {
   interface StencilElementInterfaces {
     'HexEditor': Components.HexEditor;
+    'MyTooltip': Components.MyTooltip;
   }
 
   interface StencilIntrinsicElements {
     'hex-editor': Components.HexEditorAttributes;
+    'my-tooltip': Components.MyTooltipAttributes;
   }
 
 
@@ -46,12 +63,20 @@ declare global {
     new (): HTMLHexEditorElement;
   };
 
+  interface HTMLMyTooltipElement extends Components.MyTooltip, HTMLStencilElement {}
+  var HTMLMyTooltipElement: {
+    prototype: HTMLMyTooltipElement;
+    new (): HTMLMyTooltipElement;
+  };
+
   interface HTMLElementTagNameMap {
     'hex-editor': HTMLHexEditorElement
+    'my-tooltip': HTMLMyTooltipElement
   }
 
   interface ElementTagNameMap {
     'hex-editor': HTMLHexEditorElement;
+    'my-tooltip': HTMLMyTooltipElement;
   }
 
 

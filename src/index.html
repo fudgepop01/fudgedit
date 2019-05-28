@@ -9,7 +9,25 @@
 </head>
 <body style="margin: 0">
 
-  <hex-editor first="Stencil"></hex-editor>
+  <div class="input-group">
+    <label for="maxlines">max lines:</label>
+    <input type="number" name="maxlines" id="maxlines" value="0" onchange="document.getElementById('editor').setAttribute('maxlines', event.target.value)">
+
+    <label for="bytesPerLine">bytes per line:</label>
+    <input type="number" name="bytesPerLine" id="bytesPerLine" value="0" onchange="document.getElementById('editor').setAttribute('bytesPerLine', event.target.value)">
+
+    <label for="bytesPerGroup">bytes per group:</label>
+    <input type="number" name="bytesPerGroup" id="bytesPerLine" value="0" onchange="document.getElementById('editor').setAttribute('bytesPerGroup', event.target.value)">
+
+    <label for="asciiInline">ascii inline?:</label>
+    <input type="number" name="asciiInline" id="asciiInline" value="0" min="0" max="1" onchange="document.getElementById('editor').setAttribute('asciiinline', event.target.value === '1')">
+
+    <label for="regionDepth">region depth:</label>
+    <input type="number" name="regionDepth" id="regionDepth" value="0" onchange="document.getElementById('editor').setAttribute('regionDepth', event.target.value)">
+  </div>
+
+  <my-tooltip id="tooltip"></my-tooltip>
+  <hex-editor id="editor" first="Stencil"></hex-editor>
 
 </body>
 </html>
