@@ -11,7 +11,7 @@ function isInprogress(piece: pieces): piece is inprogress {
   else return false;
 }
 
-export class editController {
+export class EditController {
   original: Uint8Array;
   added: Uint8Array = new Uint8Array();
   pieces: Array<pieces> = [];
@@ -81,7 +81,7 @@ export class editController {
       if (this.chunk.length === 2) {
         this.inProgress.content.push(parseInt(this.chunk, 16));
         this.chunk = '';
-        this.parent.cursor += 1;
+        this.parent.setCursorPosition(this.parent.cursor + 1);
 
         let index = this.pieces.indexOf(this.inProgress);
         if (this.inProgress.type === 'overwrite' && index !== this.pieces.length - 1) {
@@ -102,8 +102,6 @@ export class editController {
     newArr.set(this.inProgress.content, this.added.length);
 
     this.pieces[this.inProgress.index] = {offset: this.added.length, length: this.inProgress.length, source: 'added'} as piece;
-
-    console.log(this.pieces);
 
     this.added = newArr;
     this.inProgress = null;
@@ -171,7 +169,7 @@ export class editController {
   }
 
   save() {
-
+    return this.render(0, this.length).out;
   }
 
   private getPieceBuffer(piece: pieces) {

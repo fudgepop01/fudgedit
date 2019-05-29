@@ -8,6 +8,8 @@
 .hex {
   font-family: 'Sourcecode Pro', Courier, monospace;
   font-size: 15px;
+  height: 100%;
+  outline: none;
 }
 
 .hexView,

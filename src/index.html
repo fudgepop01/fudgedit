@@ -36,13 +36,26 @@
       padding: 0px 20px;
     }
 
-    #parameters .controls > *:nth-child(2n+1) {
+    #parameters .controls > *:not(button):nth-child(2n+1) {
       justify-self: right;
       padding-right: 15px;
     }
 
     #parameters .controls > input {
       height: 20px;
+      border-radius: 5px;
+      border: 1px solid black;
+    }
+
+    #parameters .controls > input[type='file'] {
+      display: none;
+    }
+
+    #parameters .controls > button {
+      grid-column-start: span 2;
+      justify-self: right;
+      height: 20px;
+      width: 50%;
       border-radius: 5px;
       border: 1px solid black;
     }
@@ -83,19 +96,19 @@
     <div id="credit"> Created by Dominick Reba <br/> <a href="https://twitter.com/fudgepop01">@fudgepop01</a> </div>
     <div class="controls">
       <label for="maxlines">max lines:</label>
-      <input type="number" name="maxlines" id="maxlines" value="30" onchange="document.getElementById('editor').setAttribute('maxlines', event.target.value)">
+      <input type="number" name="maxlines" id="maxlines" value="30" onchange="document.getElementById('editor').setAttribute('max-lines', event.target.value)">
 
       <label for="bytesPerLine">bytes per line:</label>
-      <input type="number" name="bytesPerLine" id="bytesPerLine" value="16" onchange="document.getElementById('editor').setAttribute('bytesPerLine', event.target.value)">
+      <input type="number" name="bytesPerLine" id="bytesPerLine" value="16" onchange="document.getElementById('editor').setAttribute('bytes-per-line', event.target.value)">
 
       <label for="bytesPerGroup">bytes per group:</label>
-      <input type="number" name="bytesPerGroup" id="bytesPerLine" value="4" onchange="document.getElementById('editor').setAttribute('bytesPerGroup', event.target.value)">
+      <input type="number" name="bytesPerGroup" id="bytesPerLine" value="4" onchange="document.getElementById('editor').setAttribute('bytes-per-group', event.target.value)">
 
       <label for="asciiInline">ascii inline?:</label>
-      <input type="number" name="asciiInline" id="asciiInline" value="0" min="0" max="1" onchange="document.getElementById('editor').setAttribute('asciiinline', event.target.value === '1')">
+      <input type="number" name="asciiInline" id="asciiInline" value="0" min="0" max="1" onchange="document.getElementById('editor').setAttribute('ascii-inline', event.target.value === '1')">
 
       <label for="regionDepth">region depth:</label>
-      <input type="number" name="regionDepth" id="regionDepth" value="2" onchange="document.getElementById('editor').setAttribute('regionDepth', event.target.value)">
+      <input type="number" name="regionDepth" id="regionDepth" value="2" onchange="document.getElementById('editor').setAttribute('region-depth', event.target.value)">
 
       <label for="mode">mode:</label>
       <select id="mode" onchange="document.getElementById('editor').setAttribute('mode', event.target.value)" >
@@ -105,11 +118,15 @@
       </select>
 
       <label for="editType">edit type:</label>
-      <select id="editType" onchange="document.getElementById('editor').setAttribute('edittype', event.target.value)" >
+      <select id="editType" onchange="document.getElementById('editor').setAttribute('edit-type', event.target.value)" >
         <option value="insert">insert</option>
         <option value="overwrite" selected>overwrite</option>
         <option value="readonly">read-only</option>
       </select>
+
+      <input type="file" name="uploadFile" id="uploadFile" onchange="document.getElementById('editor').acceptFile(this.files[0])">
+      <button onclick="document.getElementById('uploadFile').click()">upload</button>
+      <button onclick="console.log(document.getElementById('editor').saveFile())">save</button>
     </div>
   </div>
 

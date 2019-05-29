@@ -1,5 +1,5 @@
-import { Component, State, Prop } from '@stencil/core';
-import { editController } from './editController';
+import { Component, State, Prop, Method, Event, EventEmitter } from '@stencil/core';
+import { EditController } from './editController';
 
 
 interface IRegion {
@@ -17,55 +17,28 @@ interface IRegion {
   shadow: false
 })
 export class HexEditor {
+  // SECTION OWN PROPERTIES
 
-  editController: editController;
+  editController: EditController;
 
-  @Prop({attr: 'maxlines'}) maxLines: number = 30;
-  @Prop({attr: 'bytesperline'}) bytesPerLine: number = 16;
-  @Prop() bytesUntilForcedLine: number = 0;
-  @Prop({attr: 'asciiinline'}) asciiInline: boolean = false;
-  @Prop({attr: 'bytespergroup'}) bytesPerGroup: number = 4;
-  @Prop({attr: 'mode'}) mode: "region" | "edit" | "noregion" = "region";
-  @Prop({attr: 'edittype'}) editType: "insert" | "overwrite" | "readonly" = "overwrite";
-  @Prop({attr: 'regiondepth'}) regionDepth: number = 2;
+  // !SECTION
 
-  @Prop() regions: IRegion[] = [{
-    start: 0x0,
-    end: 0x40,
-    name: 'start',
-    description: 'the start of the file. Hopefully this works',
-    subRegions: [{
-      start: 0x0,
-      end: 0x20,
-      subRegions: [{
-        start: 0x0,
-        end: 0x8
-      }, {
-        start: 0x10,
-        end: 0x16
-      }]
-    }, {
-      start: 0x20,
-      end: 0x40
-    }]
-  },
-  {
-    start: 0x40,
-    end: 0x69
-  },
-  {
-    start: 0x269,
-    end: 0x369
-  },
-  {
-    start: 0x369,
-    end: 0x400
-  }];
+  // SECTION STATE
 
-  // what is initially seen when a file is uploaded
+  /**
+   * contains metadata of the given file
+   * @type {File}
+   * @memberof HexEditor
+   */
   @State() fileMetadata: File;
-  // the loaded file
-  @State() file: Uint8Array;
+
+  /**
+   * the loaded file
+   *
+   * @type {Uint8Array}
+   * @memberof HexEditor
+   */
+  @State() file: Uint8Array = new Uint8Array(32);
   // keeps track of which line is displayed
   @State() lineNumber: number = 0;
 
@@ -76,47 +49,217 @@ export class HexEditor {
   // keeps track of where exactly the cursor is
   @State() cursor: number;
 
+  // !SECTION
+
+  // SECTION PROPS
+
   /**
-   * accepts and reads the file, storing the result in
-   * the file variable
-   * @param event the event
+   * the number of lines to display at once
+   *
+   * @type {number}
+   * @memberof HexEditor
    */
-  acceptFile(event: Event) {
-    const target = event.target as HTMLInputElement;
-    this.fileMetadata = target.files[0];
+  @Prop() maxLines: number = 30;
+
+  /**
+   * the number of bytes to display per line
+   *
+   * @type {number}
+   * @memberof HexEditor
+   */
+  @Prop() bytesPerLine: number = 16;
+
+  /**
+   * currently does nothing
+   * it WOULD force a line break every X bytes
+   * @type {number}
+   * @memberof HexEditor
+   * @deprecated
+   */
+  @Prop() bytesUntilForcedLine: number = 0;
+
+  /**
+   * weather or not to replace typical ASCII values
+   * with their ASCII value representation
+   * ( ex: 0x61 ==> ".a" )
+   *
+   * @type {boolean}
+   * @memberof HexEditor
+   */
+  @Prop() asciiInline: boolean = false;
+
+  /**
+   * the number of bytes between separators
+   *
+   * @type {number}
+   * @memberof HexEditor
+   */
+  @Prop() bytesPerGroup: number = 4;
+
+  /**
+   * the mode of operation:
+   * region:
+   *    used to highlight different regions. Hovering over
+   *    a region displays a tooltip
+   * edit:
+   *    regions are displayed in the background, allowing
+   *    the user to edit directly
+   * noregion:
+   *    regions are not displayed at all
+   *
+   * @type {("region" | "edit" | "noregion")}
+   * @memberof HexEditor
+   */
+  @Prop() mode: "region" | "edit" | "noregion" = "edit";
+
+  /**
+   * the mode of data entry:
+   * insert:
+   *    inserts data between bytes
+   * overwrite:
+   *    overwrites the currently selected byte
+   * readonly:
+   *    no edits are possible
+   *
+   * @type {("insert" | "overwrite" | "readonly")}
+   * @memberof HexEditor
+   */
+  @Prop() editType: "insert" | "overwrite" | "readonly" = "overwrite";
+
+  /**
+   * the number of regions to traverse
+   *
+   * @type {number}
+   * @memberof HexEditor
+   */
+  @Prop() regionDepth: number = 2;
+
+  /**
+   * the region data. Data will be displayed in the tooltip
+   * if mode is set to "region"
+   *
+   * @type {IRegion[]}
+   * @memberof HexEditor
+   */
+  @Prop() regions: IRegion[] = [];
+
+  // !SECTION
+
+  // SECTION EVENTS
+
+  /**
+   * Emitted when the lineNumber changes
+   *
+   * @type {EventEmitter}
+   * @memberof HexEditor
+   */
+  @Event() hexLineChanged: EventEmitter;
+
+  /**
+   * Emitted on the change of the cursor's position
+   *
+   * @type {EventEmitter}
+   * @memberof HexEditor
+   */
+  @Event() hexCursorChanged: EventEmitter;
+
+  /**
+   * Emitted when the selection changes
+   *
+   * @type {EventEmitter}
+   * @memberof HexEditor
+   */
+  @Event() hexSelectionChanged: EventEmitter;
+
+  /**
+   * fired when the file's data changes
+   *
+   * @type {EventEmitter}
+   * @memberof HexEditor
+   */
+  @Event() hexDataChanged: EventEmitter;
+
+  // !SECTION
+
+  // SECTION COMPONENT LIFECYCLE METHODS
+
+  componentWillLoad() {
+    this.editController = new EditController(this);
+  }
+
+  // !SECTION
+
+  // SECTION LISTENERS
+  // !SECTION
+
+  // SECTION EXPOSED API
+
+  /**
+  * accepts and reads the given file, storing the result in
+  * the file variable
+  * @param file
+  */
+  @Method()
+  async acceptFile(file: File) {
+    console.log(file);
+    this.fileMetadata = file;
 
     const reader = new FileReader();
-    reader.readAsArrayBuffer(target.files[0]);
+    reader.readAsArrayBuffer(file);
     reader.onload = (event) => {
       this.file = new Uint8Array((event.target as any).result);
-      this.editController = new editController(this);
+      this.editController = new EditController(this);
     }
   }
 
   /**
-   * TODO: make this prettier
-   * displays the file upload button
+   * returns the edited file
+   *
+   * @returns {(Promise<Uint8Array | void>)}
+   * @memberof HexEditor
    */
-  showSelector() {
-    return (
-      <div class="select">
-        <label htmlFor="file-uploader">select a file to upload: </label>
-        <input type="file" id="file-uploader" onChange={(evt) => this.acceptFile(evt)} />
-      </div>
-    );
+  @Method()
+  async saveFile(): Promise<Uint8Array | void> {
+    if (this.file == undefined) return;
+    return this.editController.save();
   }
 
   /**
-   * displays the progress of the file upload
+   * sets the line number
+   *
+   * @param {number} newLineNumber
+   * @memberof HexEditor
    */
-  showLoading() {
-    return (
-      <div class="loading">
-        <div id="MEASURE" class="hex" style={{position: 'absolute', visibility: 'hidden', padding: '0 5px'}}>AB</div>
-        <p>loading...</p>
-      </div>
-    );
+  @Method()
+  async setLineNumber(newLineNumber: number) {
+    this.lineNumber = newLineNumber;
+    this.hexLineChanged.emit(newLineNumber);
   }
+
+  /**
+   * sets the new cursor position
+   *
+   * @param {number} newCursorPosition
+   * @memberof HexEditor
+   */
+  @Method()
+  async setCursorPosition(newCursorPosition: number) {
+    this.cursor = newCursorPosition;
+  }
+
+  /**
+   * sets the new selection bounds.
+   * @param {{start?: number, end?: number}} newSelection
+   * @memberof HexEditor
+   */
+  @Method()
+  async setSelection(newSelection: {start?: number, end?: number}) {
+    this.selection = {...this.selection, ...newSelection};
+  }
+
+  // !SECTION
+
+  // LOCAL METHODS
 
   /**
    * builds the elements responsible for the hex view
@@ -187,14 +330,14 @@ export class HexEditor {
 
     // fill extra space
     while (lineViews.length < maxLines) {
-      lineViews.push(<div class="hexLine"><span>-</span></div>);
-      charViews.push(<div class="charLine"><span>-</span></div>);
+      lineViews.push(<div class="hexLine" style={{pointerEvents: 'none'}}><span>-</span></div>);
+      charViews.push(<div class="charLine" style={{pointerEvents: 'none'}}><span>-</span></div>);
     }
 
     // line number builder
     const lineLabels = [];
     for (let i = 0; i < maxLines; i++) {
-      lineLabels.push(<div class="lineLabel">{'0x' + (start + i * bytesPerLine).toString(16).padStart(8, ' ')}</div>)
+      lineLabels.push(<div class="lineLabel" style={{pointerEvents: 'none'}}>{'0x' + (start + i * bytesPerLine).toString(16).padStart(8, ' ')}</div>)
     }
 
     // regions
@@ -325,7 +468,6 @@ export class HexEditor {
    * @param evt the mousedown event
    */
   beginSelection(evt: any) {
-    console.log(evt.composedPath());
     this.tempSelection =
       this.lineNumber * this.bytesPerLine +
       [...evt.composedPath()[2].children].indexOf(evt.composedPath()[1]) * this.bytesPerLine +
@@ -353,7 +495,13 @@ export class HexEditor {
     this.tempSelection = null;
     this.cursor = chosen;
 
-    if (this.editController.inProgress) this.editController.commit();
+    this.hexCursorChanged.emit(this.cursor);
+    this.hexSelectionChanged.emit(this.selection);
+
+    if (this.editController.inProgress) {
+      this.editController.commit();
+      this.hexDataChanged.emit();
+    }
   }
 
   /**
@@ -366,9 +514,8 @@ export class HexEditor {
    */
   scroll = (evt: WheelEvent) => {
     evt.preventDefault();
-    console.log(evt.deltaY);
 
-    let scaledVelocity = (evt.deltaY % 1 !== 0) ? Math.ceil(evt.deltaY / 100) : Math.ceil(evt.deltaY / 2);
+    let scaledVelocity = (!Number.isInteger(evt.deltaY)) ? Math.ceil(evt.deltaY / 100) : Math.ceil(evt.deltaY / 2);
     if (scaledVelocity === -0) scaledVelocity -= 1;
 
     if (this.lineNumber + scaledVelocity < 0) this.lineNumber = 0;
@@ -379,11 +526,7 @@ export class HexEditor {
   render() {
     return (
       <div class="container">
-        {!this.fileMetadata
-            ? this.showSelector()
-            : !this.file
-              ? this.showLoading()
-              : this.showHex()}
+        {this.showHex()}
       </div>
     )
   }
