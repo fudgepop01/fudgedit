@@ -12,7 +12,7 @@ import '@stencil/core';
 
 export namespace Components {
 
-  interface HexEditor {
+  interface FudgeHexEditor {
     /**
     * accepts and reads the given file, storing the result in the file variable
     */
@@ -70,7 +70,7 @@ export namespace Components {
     */
     'setSelection': (newSelection: { start?: number; end?: number; }) => Promise<void>;
   }
-  interface HexEditorAttributes extends StencilHTMLAttributes {
+  interface FudgeHexEditorAttributes extends StencilHTMLAttributes {
     /**
     * weather or not to replace typical ASCII values with their ASCII value representation ( ex: 0x61 ==> ".a" )
     */
@@ -125,12 +125,12 @@ export namespace Components {
     'regions'?: IRegion[];
   }
 
-  interface MyTooltip {
+  interface FudgeTooltip {
     'active': boolean;
     'data': {[key: string]: string} | string;
     'simpleText': string;
   }
-  interface MyTooltipAttributes extends StencilHTMLAttributes {
+  interface FudgeTooltipAttributes extends StencilHTMLAttributes {
     'active'?: boolean;
     'data'?: {[key: string]: string} | string;
     'simpleText'?: string;
@@ -139,36 +139,36 @@ export namespace Components {
 
 declare global {
   interface StencilElementInterfaces {
-    'HexEditor': Components.HexEditor;
-    'MyTooltip': Components.MyTooltip;
+    'FudgeHexEditor': Components.FudgeHexEditor;
+    'FudgeTooltip': Components.FudgeTooltip;
   }
 
   interface StencilIntrinsicElements {
-    'hex-editor': Components.HexEditorAttributes;
-    'my-tooltip': Components.MyTooltipAttributes;
+    'fudge-hex-editor': Components.FudgeHexEditorAttributes;
+    'fudge-tooltip': Components.FudgeTooltipAttributes;
   }
 
 
-  interface HTMLHexEditorElement extends Components.HexEditor, HTMLStencilElement {}
-  var HTMLHexEditorElement: {
-    prototype: HTMLHexEditorElement;
-    new (): HTMLHexEditorElement;
+  interface HTMLFudgeHexEditorElement extends Components.FudgeHexEditor, HTMLStencilElement {}
+  var HTMLFudgeHexEditorElement: {
+    prototype: HTMLFudgeHexEditorElement;
+    new (): HTMLFudgeHexEditorElement;
   };
 
-  interface HTMLMyTooltipElement extends Components.MyTooltip, HTMLStencilElement {}
-  var HTMLMyTooltipElement: {
-    prototype: HTMLMyTooltipElement;
-    new (): HTMLMyTooltipElement;
+  interface HTMLFudgeTooltipElement extends Components.FudgeTooltip, HTMLStencilElement {}
+  var HTMLFudgeTooltipElement: {
+    prototype: HTMLFudgeTooltipElement;
+    new (): HTMLFudgeTooltipElement;
   };
 
   interface HTMLElementTagNameMap {
-    'hex-editor': HTMLHexEditorElement
-    'my-tooltip': HTMLMyTooltipElement
+    'fudge-hex-editor': HTMLFudgeHexEditorElement
+    'fudge-tooltip': HTMLFudgeTooltipElement
   }
 
   interface ElementTagNameMap {
-    'hex-editor': HTMLHexEditorElement;
-    'my-tooltip': HTMLMyTooltipElement;
+    'fudge-hex-editor': HTMLFudgeHexEditorElement;
+    'fudge-tooltip': HTMLFudgeTooltipElement;
   }
 
 

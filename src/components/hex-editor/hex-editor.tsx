@@ -12,7 +12,7 @@ interface IRegion {
 }
 
 @Component({
-  tag: 'hex-editor',
+  tag: 'fudge-hex-editor',
   styleUrl: 'hex-editor.css',
   shadow: false
 })

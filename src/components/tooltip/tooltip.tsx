@@ -1,7 +1,7 @@
 import { Component, Prop } from "@stencil/core";
 
 @Component({
-  tag: 'my-tooltip',
+  tag: 'fudge-tooltip',
   styleUrl: 'tooltip.css',
   shadow: false,
 })

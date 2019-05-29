@@ -1,7 +1,7 @@
 {
-  "name": "hexeditor",
+  "name": "fudgedit",
   "version": "0.0.1",
-  "description": "Stencil Component Starter",
+  "description": "A Hex Editor that allows for region highlighting, multiple modes, and more",
   "module": "dist/esm/index.js",
   "main": "dist/index.js",
   "unpkg": "dist/ionic.js",
@@ -20,5 +20,6 @@
   "devDependencies": {
     "@stencil/core": "~0.16.2"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "keywords": ["hex", "editor", "fudgepop01", "tool", "binary", "hexeditor"]
 }
