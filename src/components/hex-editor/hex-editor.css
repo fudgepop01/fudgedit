@@ -1,8 +1,8 @@
 .container {
   overflow: scroll;
   position: relative;
-  width: 100vw;
   min-height: 100%;
+  color: black;
 }
 
 .hex {
@@ -35,6 +35,8 @@
 .hexLine span {
   position: relative;
   padding: 0 5px;
+  width: 28px;
+  box-sizing: border-box;
 }
 .hexLine span:not(:last-child).padByte::after {
   /* padding-right: 15px; */
@@ -83,6 +85,14 @@
   background-color: #FFA;
 }
 
-.region { opacity: 0.8; }
+.region { opacity: 1; }
 
-.region:hover { opacity: 0.3; position: relative; }
+.highlight { mix-blend-mode: multiply; }
+
+.region {
+  position: relative;
+}
+
+.highlight:hover  .region:not(:hover) {
+  fill: #0003;
+}

@@ -1,17 +1,18 @@
 {
   "name": "fudgedit",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "A Hex Editor that allows for region highlighting, multiple modes, and more",
+  "repository": {"url": "https://github.com/fudgepop01/fudgedit"},
   "module": "dist/esm/index.js",
   "main": "dist/index.js",
-  "unpkg": "dist/ionic.js",
+  "unpkg": "dist/fudgedit.js",
   "types": "dist/types/components.d.ts",
   "collection": "dist/collection/collection-manifest.json",
   "files": [
     "dist/"
   ],
   "scripts": {
-    "build": "stencil build --www",
+    "build": "stencil build --dev",
     "start": "stencil build --dev --watch --serve",
     "test": "stencil test --spec --e2e",
     "test.watch": "stencil test --spec --e2e --watchAll"
@@ -21,5 +22,12 @@
     "@stencil/core": "~0.16.2"
   },
   "license": "MIT",
-  "keywords": ["hex", "editor", "fudgepop01", "tool", "binary", "hexeditor"]
+  "keywords": [
+    "hex",
+    "editor",
+    "fudgepop01",
+    "tool",
+    "binary",
+    "hexeditor"
+  ]
 }

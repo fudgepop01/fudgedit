@@ -124,7 +124,6 @@ export class EditController {
       }
     }
 
-
     if (isInprogress(this.pieces[startIndex]) || (this.pieces[startIndex] as piece).source === 'added') {
       meta.added.push([start - startPlace, start - startPlace + this.pieces[startIndex].length]);
     }

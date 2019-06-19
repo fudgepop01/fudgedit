@@ -7,7 +7,11 @@
   <script src="/build/fudgeapps.js"></script>
 
   <link href="https://fonts.googleapis.com/css?family=Open+Sans&display=swap" rel="stylesheet">
+  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.5/ace.js"></script> -->
+  <script src="https://unpkg.com/jsoneditor@6.0.0/dist/jsoneditor.min.js"></script>
+  <link href="https://unpkg.com/jsoneditor@6.0.0/dist/jsoneditor.min.css" rel="stylesheet"></link>
   <style>
+    /* afaik this does need to be hardcoded here lol */
     body {
       height: 100vh;
       width: 100vw;
@@ -60,6 +64,13 @@
       border: 1px solid black;
     }
 
+    #regionEditor {
+      position: absolute;
+      right: 0;
+      height: 100%;
+      width: 400px;
+    }
+
     #showcase {
       height: 100%;
 
@@ -85,7 +96,6 @@
     a {
       color: white;
     }
-
   </style>
 
 </head>
@@ -131,10 +141,53 @@
   </div>
 
   <div id="showcase">
-    <fudge-tooltip id="tooltip"></fudge-tooltip>
-    <div id="MEASURE" class="hex" style="position: absolute; visibility: hidden; padding: 0 5px; height: 17px; display: inline-block;">AB</div>
-    <fudge-hex-editor id="editor"></fudge-hex-editor>
+    <fudge-hex-tooltip id="tooltip"></fudge-hex-tooltip>
+    <fudge-hex-editor id="editor" mode="region"></fudge-hex-editor>
   </div>
 
+  <div id="regionEditor">
+  </div>
+
+  <script>
+    let container = document.getElementById("regionEditor");
+    let options = {
+      onChange() {
+        document.getElementById("editor").regions = editor.get();
+      }
+    };
+    let editor = new JSONEditor(container, options);
+
+    let json = [{
+      start: 0x0,
+      end: 0x10,
+      name: 'outer layer w/ children',
+      subRegions: [{
+        start: 0x0,
+        end: 0x5,
+        name: '2nd-level child 1',
+        subRegions: [{
+          start: 0x1,
+          end: 0x4,
+          name: '3rd-level child',
+          subRegions: [{
+            start: 0x2,
+            end: 0x3,
+            name: '4th-level child'
+          }]
+        }]
+      }, {
+        start: 0x8,
+        end: 0x10,
+        name: '2nd-level child 2'
+      }]
+    }, {
+      start: 0x10,
+      end: 0x14,
+      name: '2nd outer layer'
+    }];
+    editor.set(json);
+    document.getElementById("editor").regions = json;
+
+  </script>
 </body>
 </html>

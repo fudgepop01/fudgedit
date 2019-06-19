@@ -8,6 +8,9 @@
 import '@stencil/core';
 
 
+import {
+  IRegion,
+} from './components/hex-editor/interfaces';
 
 
 export namespace Components {
@@ -33,6 +36,10 @@ export namespace Components {
     * currently does nothing it WOULD force a line break every X bytes
     */
     'bytesUntilForcedLine': number;
+    /**
+    * weather or not to display ASCII on the side
+    */
+    'displayAscii': boolean;
     /**
     * the mode of data entry: insert:     inserts data between bytes overwrite:     overwrites the currently selected byte readonly:     no edits are possible
     */
@@ -88,6 +95,10 @@ export namespace Components {
     */
     'bytesUntilForcedLine'?: number;
     /**
+    * weather or not to display ASCII on the side
+    */
+    'displayAscii'?: boolean;
+    /**
     * the mode of data entry: insert:     inserts data between bytes overwrite:     overwrites the currently selected byte readonly:     no edits are possible
     */
     'editType'?: "insert" | "overwrite" | "readonly";
@@ -112,6 +123,10 @@ export namespace Components {
     */
     'onHexLineChanged'?: (event: CustomEvent) => void;
     /**
+    * fired when the component loads
+    */
+    'onHexLoaded'?: (event: CustomEvent) => void;
+    /**
     * Emitted when the selection changes
     */
     'onHexSelectionChanged'?: (event: CustomEvent) => void;
@@ -125,12 +140,12 @@ export namespace Components {
     'regions'?: IRegion[];
   }
 
-  interface FudgeTooltip {
+  interface FudgeHexTooltip {
     'active': boolean;
     'data': {[key: string]: string} | string;
     'simpleText': string;
   }
-  interface FudgeTooltipAttributes extends StencilHTMLAttributes {
+  interface FudgeHexTooltipAttributes extends StencilHTMLAttributes {
     'active'?: boolean;
     'data'?: {[key: string]: string} | string;
     'simpleText'?: string;
@@ -140,12 +155,12 @@ export namespace Components {
 declare global {
   interface StencilElementInterfaces {
     'FudgeHexEditor': Components.FudgeHexEditor;
-    'FudgeTooltip': Components.FudgeTooltip;
+    'FudgeHexTooltip': Components.FudgeHexTooltip;
   }
 
   interface StencilIntrinsicElements {
     'fudge-hex-editor': Components.FudgeHexEditorAttributes;
-    'fudge-tooltip': Components.FudgeTooltipAttributes;
+    'fudge-hex-tooltip': Components.FudgeHexTooltipAttributes;
   }
 
 
@@ -155,20 +170,20 @@ declare global {
     new (): HTMLFudgeHexEditorElement;
   };
 
-  interface HTMLFudgeTooltipElement extends Components.FudgeTooltip, HTMLStencilElement {}
-  var HTMLFudgeTooltipElement: {
-    prototype: HTMLFudgeTooltipElement;
-    new (): HTMLFudgeTooltipElement;
+  interface HTMLFudgeHexTooltipElement extends Components.FudgeHexTooltip, HTMLStencilElement {}
+  var HTMLFudgeHexTooltipElement: {
+    prototype: HTMLFudgeHexTooltipElement;
+    new (): HTMLFudgeHexTooltipElement;
   };
 
   interface HTMLElementTagNameMap {
     'fudge-hex-editor': HTMLFudgeHexEditorElement
-    'fudge-tooltip': HTMLFudgeTooltipElement
+    'fudge-hex-tooltip': HTMLFudgeHexTooltipElement
   }
 
   interface ElementTagNameMap {
     'fudge-hex-editor': HTMLFudgeHexEditorElement;
-    'fudge-tooltip': HTMLFudgeTooltipElement;
+    'fudge-hex-tooltip': HTMLFudgeHexTooltipElement;
   }
 
 

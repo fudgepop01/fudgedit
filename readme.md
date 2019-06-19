@@ -2,7 +2,7 @@
 
 # Fudgedit
 
-Fudgedit is an open source online hex editing component. It has quite a few features
+Fudgedit is an open source online hex editing component.
 
 ## Using this component
 

@@ -1,15 +1,6 @@
 import { Component, State, Prop, Method, Event, EventEmitter } from '@stencil/core';
 import { EditController } from './editController';
-
-
-interface IRegion {
-  start: number;
-  end: number;
-  name?: string;
-  description?: string;
-  color?: string;
-  subRegions?: IRegion[];
-}
+import { IRegion } from './interfaces';
 
 @Component({
   tag: 'fudge-hex-editor',
@@ -20,6 +11,8 @@ export class HexEditor {
   // SECTION OWN PROPERTIES
 
   editController: EditController;
+  regionScaleWidth: number;
+  regionScaleHeight: number;
 
   // !SECTION
 
@@ -38,7 +31,7 @@ export class HexEditor {
    * @type {Uint8Array}
    * @memberof HexEditor
    */
-  @State() file: Uint8Array = new Uint8Array(32);
+  @State() file: Uint8Array;
   // keeps track of which line is displayed
   @State() lineNumber: number = 0;
 
@@ -52,6 +45,14 @@ export class HexEditor {
   // !SECTION
 
   // SECTION PROPS
+
+  /**
+   * weather or not to display ASCII on the side
+   *
+   * @type {boolean}
+   * @memberof HexEditor
+   */
+  @Prop() displayAscii: boolean = true;
 
   /**
    * the number of lines to display at once
@@ -179,12 +180,24 @@ export class HexEditor {
    */
   @Event() hexDataChanged: EventEmitter;
 
+  /**
+   * fired when the component loads
+   */
+  @Event() hexLoaded: EventEmitter;
+
   // !SECTION
 
   // SECTION COMPONENT LIFECYCLE METHODS
 
   componentWillLoad() {
+    this.file = new Uint8Array(32);
     this.editController = new EditController(this);
+    this.regionScaleWidth = 28;
+    this.regionScaleHeight = 17;
+  }
+
+  componentDidLoad() {
+    this.hexLoaded.emit(this.editController);
   }
 
   // !SECTION
@@ -341,8 +354,6 @@ export class HexEditor {
     }
 
     // regions
-    const scaleWidth = document.getElementById('MEASURE').clientWidth;
-    const scaleHeight = document.getElementById('MEASURE').clientHeight;
 
     const regionMarkers = [];
 
@@ -352,11 +363,8 @@ export class HexEditor {
       }
 
       if (depth === this.regionDepth) return;
-      // if regions don't work right in the future then the if condition below is the reason why
-      else if (region.subRegions && depth + 1 !== this.regionDepth) {
-        for (const [i, r] of region.subRegions.entries()) buildRegion(r, depth + 1, i);
-      }
-      else {
+
+      // else {
         // start / end offsets
         const s = region.start % this.bytesPerLine;
         const e = region.end % this.bytesPerLine;
@@ -372,9 +380,9 @@ export class HexEditor {
         const offset = Math.floor(region.start / this.bytesPerLine) - lineNumber;
 
         const getColor = {
-          0: ['#77F', '#BBF'],
-          1: ['#F77', '#FBB'],
-          2: ['#7D7', '#BDB']
+          0: ['#88F', '#BBF'],
+          1: ['#F88', '#FBB'],
+          2: ['#8D8', '#BDB']
         }
 
         regionMarkers.push((
@@ -396,28 +404,32 @@ export class HexEditor {
           onmouseleave={`document.getElementById('tooltip').setAttribute('active', false)`}
           class="region"
           points={`
-            0,${(1 + offset) * scaleHeight}
-            ${s * scaleWidth},${(1 + offset) * scaleHeight}
-            ${s * scaleWidth},${offset * scaleHeight}
-            ${this.bytesPerLine * scaleWidth},${offset * scaleHeight}
-            ${this.bytesPerLine * scaleWidth},${(l + offset) * scaleHeight}
-            ${e * scaleWidth},${(l + offset) * scaleHeight}
-            ${e * scaleWidth},${(l + offset + 1) * scaleHeight}
-            0,${(l+1 + offset) * scaleHeight}
+            0,${(1 + offset) * this.regionScaleHeight}
+            ${s * this.regionScaleWidth},${(1 + offset) * this.regionScaleHeight}
+            ${s * this.regionScaleWidth},${offset * this.regionScaleHeight}
+            ${this.bytesPerLine * this.regionScaleWidth},${offset * this.regionScaleHeight}
+            ${this.bytesPerLine * this.regionScaleWidth},${(l + offset) * this.regionScaleHeight}
+            ${e * this.regionScaleWidth},${(l + offset) * this.regionScaleHeight}
+            ${e * this.regionScaleWidth},${(l + offset + 1) * this.regionScaleHeight}
+            0,${(l+1 + offset) * this.regionScaleHeight}
             `} fill={region.color || getColor[depth % 3][index % 2]} stroke="none"/>
         ))
+        // if regions don't work right in the future then the if condition below is the reason why
+      if (region.subRegions && depth + 1 !== this.regionDepth) {
+        for (const [i, r] of region.subRegions.entries()) buildRegion(r, depth + 1, i);
       }
+      // }
     }
 
     for (const [i, region] of this.regions.entries()) {
       buildRegion(region, 0, i);
     }
-    // style={{width: this.bytesPerLine * scaleWidth, height: this.maxLines * scaleHeight}}
+    // style={{width: this.bytesPerLine * this.regionScaleWidth, height: this.maxLines * this.regionScaleHeight}}
     return {
       lineViews,
       charViews,
       lineLabels,
-      regionMarkers: <svg viewbox={`0 0 ${this.bytesPerLine * scaleWidth} ${this.maxLines * scaleHeight}`} width={`${this.bytesPerLine * scaleWidth}`} height={`${this.maxLines * scaleHeight}`}>{regionMarkers}</svg>
+      regionMarkers: <svg viewbox={`0 0 ${this.bytesPerLine * this.regionScaleWidth} ${this.maxLines * this.regionScaleHeight}`} width={`${this.bytesPerLine * this.regionScaleWidth}`} height={`${this.maxLines * this.regionScaleHeight}`}>{regionMarkers}</svg>
     }
   }
 
@@ -444,7 +456,7 @@ export class HexEditor {
         tabindex="0"
         onKeyDown={(evt) => this.edit(evt)}
       >
-        <div id="MEASURE" style={{position: 'absolute', visibility: 'hidden', padding: '0 5px'}}>AB</div>
+        <div id="MEASURE" class="hex" style={{position: 'absolute', visibility: 'hidden', padding: '0 5px'}}>AB</div>
         <div class="lineLabels">
           {lineLabels}
         </div>
@@ -456,9 +468,12 @@ export class HexEditor {
             {lineViews}
           </div>
         </div>
-        <div class="asciiView">
-          {charViews}
-        </div>
+        {this.displayAscii ?
+          <div class="asciiView">
+            {charViews}
+          </div>
+          : null}
+
       </div>
     );
   }
