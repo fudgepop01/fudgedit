@@ -358,9 +358,7 @@ export class HexEditor {
     const regionMarkers = [];
 
     const buildRegion = (region: IRegion, depth = 0, index?: number) => {
-      if (depth === 0) {
-        if (region.end < start || region.start > start + this.maxLines * this.bytesPerLine) return;
-      }
+      if (region.end < start || region.start > start + this.maxLines * this.bytesPerLine) return;
 
       if (depth === this.regionDepth) return;
 
