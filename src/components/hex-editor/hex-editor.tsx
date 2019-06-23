@@ -373,7 +373,12 @@ export class HexEditor {
         // provided by 's'
         const l = Math.floor((region.end - region.start + s) / this.bytesPerLine);
 
-        if (region.end < start || region.start > start + this.maxLines * this.bytesPerLine) return;
+        if (region.end < start || region.start > start + this.maxLines * this.bytesPerLine) {
+          if (region.subRegions && depth + 1 !== this.regionDepth) {
+            for (const [i, r] of region.subRegions.entries()) buildRegion(r, depth + 1, i);
+          }
+          return;
+        };
 
         const offset = Math.floor(region.start / this.bytesPerLine) - lineNumber;
 
