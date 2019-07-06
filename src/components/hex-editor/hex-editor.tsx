@@ -270,6 +270,18 @@ export class HexEditor {
     this.selection = {...this.selection, ...newSelection};
   }
 
+  /**
+   * fetches a Uint8Array of a given length
+   * at the given location
+   * @param location where to fetch the data from
+   * @param length how many bytes to load
+   * @memberof HexEditor
+   */
+  @Method()
+  async getChunk(location: number, length: number) {
+    return this.editController.render(location, length);
+  }
+
   // !SECTION
 
   // LOCAL METHODS
@@ -293,14 +305,14 @@ export class HexEditor {
     const lineViews = [];
     const charViews = [];
     for (const [lineNum, line] of lines.entries()) {
+      if (line.length === 0) break;
+
       // setup variables
       const base = start + lineNum * bytesPerLine;
       const charLines = [];
       const hexLines = [];
       let ascii = '•';
       let selected = false;
-
-      if (line.length === 0) break;
 
       // sets up everything else.
       for (const [position, val] of [...line.values()].entries()) {

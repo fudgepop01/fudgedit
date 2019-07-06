@@ -45,6 +45,10 @@ export namespace Components {
     */
     'editType': "insert" | "overwrite" | "readonly";
     /**
+    * fetches a Uint8Array of a given length at the given location
+    */
+    'getChunk': (location: number, length: number) => Promise<{ out: Uint8Array; meta: { added: [number, number][]; }; }>;
+    /**
     * the number of lines to display at once
     */
     'maxLines': number;
