@@ -49,6 +49,10 @@ export namespace Components {
     */
     'getChunk': (location: number, length: number) => Promise<{ out: Uint8Array; meta: { added: [number, number][]; }; }>;
     /**
+    * returns the file's metadata
+    */
+    'getFileMetadata': () => Promise<File>;
+    /**
     * the number of lines to display at once
     */
     'maxLines': number;

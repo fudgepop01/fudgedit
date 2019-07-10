@@ -282,6 +282,15 @@ export class HexEditor {
     return this.editController.render(location, length);
   }
 
+  /**
+   * returns the file's metadata
+   * @memberof HexEditor
+   */
+  @Method()
+  async getFileMetadata() {
+    return this.fileMetadata;
+  }
+
   // !SECTION
 
   // LOCAL METHODS
@@ -488,7 +497,6 @@ export class HexEditor {
             {charViews}
           </div>
           : null}
-
       </div>
     );
   }
@@ -498,6 +506,7 @@ export class HexEditor {
    * @param evt the mousedown event
    */
   beginSelection(evt: any) {
+    if ((evt.target as HTMLElement).id === 'HEX-SCROLLBAR') return;
     this.tempSelection =
       this.lineNumber * this.bytesPerLine +
       [...evt.composedPath()[2].children].indexOf(evt.composedPath()[1]) * this.bytesPerLine +
@@ -505,6 +514,7 @@ export class HexEditor {
   }
 
   endSelection(evt: any) {
+    if ((evt.target as HTMLElement).id === 'HEX-SCROLLBAR') return;
     const chosen =
       this.lineNumber * this.bytesPerLine +
       [...evt.composedPath()[2].children].indexOf(evt.composedPath()[1]) * this.bytesPerLine +

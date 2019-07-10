@@ -1,5 +1,5 @@
 .container {
-  overflow: scroll;
+  overflow: hidden;
   position: relative;
   min-height: 100%;
   color: black;
