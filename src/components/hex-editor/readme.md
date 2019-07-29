@@ -51,6 +51,34 @@ Type: `Promise<void>`
 
 
 
+### `getChunk(location: number, length: number) => Promise<{ out: Uint8Array; meta: { added: [number, number][]; }; }>`
+
+fetches a Uint8Array of a given length
+at the given location
+
+#### Parameters
+
+| Name       | Type     | Description                  |
+| ---------- | -------- | ---------------------------- |
+| `location` | `number` | where to fetch the data from |
+| `length`   | `number` | how many bytes to load       |
+
+#### Returns
+
+Type: `Promise<{ out: Uint8Array; meta: { added: [number, number][]; }; }>`
+
+
+
+### `getFileMetadata() => Promise<File>`
+
+returns the file's metadata
+
+#### Returns
+
+Type: `Promise<File>`
+
+
+
 ### `saveFile() => Promise<void | Uint8Array>`
 
 returns the edited file

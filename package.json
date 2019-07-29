@@ -1,6 +1,6 @@
 {
   "name": "fudgedit",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "A Hex Editor that allows for region highlighting, multiple modes, and more",
   "repository": {
     "url": "https://github.com/fudgepop01/fudgedit"
@@ -14,7 +14,7 @@
     "dist/"
   ],
   "scripts": {
-    "build": "stencil build --dev",
+    "build": "stencil build --prod",
     "start": "stencil build --dev --watch --serve",
     "test": "stencil test --spec --e2e",
     "test.watch": "stencil test --spec --e2e --watchAll"
