@@ -565,7 +565,7 @@ export class HexEditor {
 
   render() {
     return (
-      <div class="container">
+      <div class="fudgedit-container">
         {this.showHex()}
       </div>
     )
