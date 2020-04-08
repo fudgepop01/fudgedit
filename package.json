@@ -5,7 +5,7 @@
   "repository": {
     "url": "https://github.com/fudgepop01/fudgedit"
   },
-  "module": "dist/esm/index.js",
+  "module": "./dist/index.js",
   "main": "dist/index.js",
   "unpkg": "dist/fudgedit.js",
   "types": "dist/types/components.d.ts",
@@ -21,7 +21,12 @@
   },
   "dependencies": {},
   "devDependencies": {
-    "@stencil/core": "~0.16.2"
+    "@stencil/core": "1.12.3",
+    "@types/jest": "24.9.1",
+    "@types/puppeteer": "2.0.1",
+    "jest": "24.9.0",
+    "jest-cli": "24.9.0",
+    "puppeteer": "2.1.1"
   },
   "license": "MIT",
   "keywords": [

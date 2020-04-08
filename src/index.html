@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0">
   <title>Stencil Component Starter</title>
-  <script src="/build/fudgeapps.js"></script>
+  <script type="module" src="/build/fudgeapps.esm.js"></script>
+  <script nomodule src="/build/fudgeapps.js"></script>
 
   <link href="https://fonts.googleapis.com/css?family=Open+Sans&display=swap" rel="stylesheet">
   <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.5/ace.js"></script> -->
@@ -111,8 +112,8 @@
       <label for="bytesPerLine">bytes per line:</label>
       <input type="number" name="bytesPerLine" id="bytesPerLine" value="16" onchange="document.getElementById('editor').setAttribute('bytes-per-line', event.target.value)">
 
-      <label for="bytesPerGroup">bytes per group:</label>
-      <input type="number" name="bytesPerGroup" id="bytesPerLine" value="4" onchange="document.getElementById('editor').setAttribute('bytes-per-group', event.target.value)">
+      <label for="bytesPerGroup">chunks per group:</label>
+      <input type="number" name="chunksPerGroup" id="chunksPerGroup" value="4" onchange="document.getElementById('editor').setAttribute('chunks-per-group', event.target.value)">
 
       <label for="asciiInline">ascii inline?:</label>
       <input type="number" name="asciiInline" id="asciiInline" value="0" min="0" max="1" onchange="document.getElementById('editor').setAttribute('ascii-inline', event.target.value === '1')">

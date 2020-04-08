@@ -1,4 +1,4 @@
-import { Component, State, Prop, Method, Event, EventEmitter } from '@stencil/core';
+import { Component, State, Prop, Method, Event, EventEmitter, h } from '@stencil/core';
 import { EditController } from './editController';
 import { IRegion } from './interfaces';
 
@@ -13,6 +13,7 @@ export class HexEditor {
   editController: EditController;
   regionScaleWidth: number;
   regionScaleHeight: number;
+  canUpdateMouseMove: boolean;
 
   // !SECTION
 
@@ -41,6 +42,8 @@ export class HexEditor {
   @State() selection: {start: number, end: number};
   // keeps track of where exactly the cursor is
   @State() cursor: number;
+  // keeps track of what part of the editor was last clicked
+  @State() asciiMode: boolean;
 
   // !SECTION
 
@@ -90,12 +93,12 @@ export class HexEditor {
   @Prop() asciiInline: boolean = false;
 
   /**
-   * the number of bytes between separators
+   * the number of chunks between separators
    *
    * @type {number}
    * @memberof HexEditor
    */
-  @Prop() bytesPerGroup: number = 4;
+  @Prop() chunksPerGroup: number = 4;
 
   /**
    * the mode of operation:
@@ -190,7 +193,8 @@ export class HexEditor {
   // SECTION COMPONENT LIFECYCLE METHODS
 
   componentWillLoad() {
-    this.file = new Uint8Array(32);
+    this.file = new Uint8Array(256).map((_, i) => i);
+
     this.editController = new EditController(this);
     this.regionScaleWidth = 28;
     this.regionScaleHeight = 17;
@@ -299,7 +303,7 @@ export class HexEditor {
    * builds the elements responsible for the hex view
    */
   buildHexView() {
-    const { lineNumber, maxLines, bytesPerLine, bytesPerGroup, /* bytesUntilForcedLine, */ asciiInline } = this;
+    const { lineNumber, maxLines, bytesPerLine, chunksPerGroup, /* bytesUntilForcedLine, */ asciiInline } = this;
     const start = lineNumber * bytesPerLine;
 
     const chunkData = this.editController.render(start, maxLines * bytesPerLine);
@@ -313,6 +317,7 @@ export class HexEditor {
 
     const lineViews = [];
     const charViews = [];
+    let selectedLine = -1;
     for (const [lineNum, line] of lines.entries()) {
       if (line.length === 0) break;
 
@@ -321,7 +326,6 @@ export class HexEditor {
       const charLines = [];
       const hexLines = [];
       let ascii = '•';
-      let selected = false;
 
       // sets up everything else.
       for (const [position, val] of [...line.values()].entries()) {
@@ -335,10 +339,11 @@ export class HexEditor {
 
         // classes
         const classList = [];
-        if (position % bytesPerGroup === bytesPerGroup - 1) classList.push('padByte');
+        if (out.startsWith('.')) classList.push('ASCII');
+        if (position % chunksPerGroup === chunksPerGroup - 1) classList.push('padByte');
         if (this.cursor === base + position) {
           classList.push('cursor');
-          selected = true;
+          selectedLine = lineNum;
         }
         if (this.selection && this.selection.start <= base + position && base + position <= this.selection.end) classList.push('selected');
         for (const [start, end] of addedRanges) {
@@ -353,11 +358,11 @@ export class HexEditor {
       }
 
       lineViews.push((
-        <div class={'hexLine' + (selected ? ' selected' : '')}>{hexLines}</div>
+        <div class={'hexLine' + (selectedLine === lineNum ? ' selected' : '')}>{hexLines}</div>
       ));
 
       charViews.push((
-        <div class={'charLine' + (selected ? ' selected' : '')}>{charLines}</div>
+        <div class={'charLine' + (selectedLine === lineNum ? ' selected' : '')}>{charLines}</div>
       ))
 
     }
@@ -371,7 +376,7 @@ export class HexEditor {
     // line number builder
     const lineLabels = [];
     for (let i = 0; i < maxLines; i++) {
-      lineLabels.push(<div class="lineLabel" style={{pointerEvents: 'none'}}>{'0x' + (start + i * bytesPerLine).toString(16).padStart(8, ' ')}</div>)
+      lineLabels.push(<div class={'lineLabel' + (selectedLine === i ? ' selected' : '')} style={{pointerEvents: 'none'}}>{'0x' + (start + i * bytesPerLine).toString(16).padStart(8, ' ')}</div>)
     }
 
     // regions
@@ -411,21 +416,23 @@ export class HexEditor {
 
         regionMarkers.push((
           <polygon
-          onmousemove={`
-            if (window.canUpdateMousemove === undefined) {
-              window.canUpdateMousemove = true;
-            }
-            if (window.canUpdateMousemove) {
-              window.canUpdateMousemove = false;
-              document.documentElement.style.setProperty('--mouse-x', event.clientX);
-              document.documentElement.style.setProperty('--mouse-y', event.clientY);
-              document.getElementById('tooltip').setAttribute('active', true)
-              document.getElementById('tooltip').setAttribute('complex', '${JSON.stringify({...region, subRegions: region.subRegions ? region.subRegions.map(sr => sr.name) : null})}');
+          onMouseMove={
+            (evt: MouseEvent) => {
+              if (this.canUpdateMouseMove === undefined) {
+                this.canUpdateMouseMove = true;
+              }
+              if (this.canUpdateMouseMove) {
+                this.canUpdateMouseMove = false;
+                document.documentElement.style.setProperty('--mouse-x', `${evt.clientX}`);
+                document.documentElement.style.setProperty('--mouse-y', `${evt.clientY}`);
+                document.getElementById('tooltip').setAttribute('active', 'true')
+                document.getElementById('tooltip').setAttribute('complex', '${JSON.stringify({...region, subRegions: region.subRegions ? region.subRegions.map(sr => sr.name) : null})}');
 
-              setTimeout(() => {window.canUpdateMousemove = true}, 50);
+                setTimeout(() => {this.canUpdateMouseMove = true}, 50);
+              }
             }
-          `}
-          onmouseleave={`document.getElementById('tooltip').setAttribute('active', false)`}
+          }
+          onMouseLeave={() => document.getElementById('tooltip').setAttribute('active', 'false')}
           class="region"
           points={`
             0,${(1 + offset) * this.regionScaleHeight}
@@ -453,15 +460,15 @@ export class HexEditor {
       lineViews,
       charViews,
       lineLabels,
-      regionMarkers: <svg viewbox={`0 0 ${this.bytesPerLine * this.regionScaleWidth} ${this.maxLines * this.regionScaleHeight}`} width={`${this.bytesPerLine * this.regionScaleWidth}`} height={`${this.maxLines * this.regionScaleHeight}`}>{regionMarkers}</svg>
+      regionMarkers: <svg viewBox={`0 0 ${this.bytesPerLine * this.regionScaleWidth} ${this.maxLines * this.regionScaleHeight}`} width={`${this.bytesPerLine * this.regionScaleWidth}`} height={`${this.maxLines * this.regionScaleHeight}`}>{regionMarkers}</svg>
     }
   }
 
   edit(evt: KeyboardEvent) {
     if (this.editType === 'readonly') return;
     const editController = this.editController;
-    if (!editController.inProgress) editController.initEdit(this.cursor, this.editType);
-    editController.buildEdit(evt)
+    // if (!editController.inProgress) editController.initEdit(this.cursor, this.editType);
+    editController.buildEdit(evt);
   }
 
   /**
@@ -515,6 +522,8 @@ export class HexEditor {
 
   endSelection(evt: any) {
     if ((evt.target as HTMLElement).id === 'HEX-SCROLLBAR') return;
+    this.asciiMode = (evt.target as HTMLElement).parentElement.className.includes('charLine');
+
     const chosen =
       this.lineNumber * this.bytesPerLine +
       [...evt.composedPath()[2].children].indexOf(evt.composedPath()[1]) * this.bytesPerLine +
@@ -538,7 +547,7 @@ export class HexEditor {
     this.hexCursorChanged.emit(this.cursor);
     this.hexSelectionChanged.emit(this.selection);
 
-    if (this.editController.inProgress) {
+    if (this.editController.isInProgress) {
       this.editController.commit();
       this.hexDataChanged.emit();
     }

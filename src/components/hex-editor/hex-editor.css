@@ -74,6 +74,10 @@
   color: #FFF;
 }
 
+.hexLine span.ASCII {
+  font-weight: bold;
+}
+
 .hexLine:nth-child(2n-1),
 .charLine:nth-child(2n-1),
 .lineLabel:nth-child(2n-1) {
@@ -81,7 +85,8 @@
 }
 
 .charLine.selected,
-.hexLine.selected {
+.hexLine.selected,
+.lineLabel.selected {
   background-color: #FFA;
 }
 

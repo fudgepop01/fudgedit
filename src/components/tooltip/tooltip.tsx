@@ -1,4 +1,4 @@
-import { Component, Prop } from "@stencil/core";
+import { Component, Prop, h } from "@stencil/core";
 
 @Component({
   tag: 'fudge-hex-tooltip',
@@ -7,9 +7,9 @@ import { Component, Prop } from "@stencil/core";
 })
 export class Tooltip {
 
-  @Prop({attr: 'active'}) active: boolean = false;
-  @Prop({attr: 'complex'}) data: {[key: string]: string} | string;
-  @Prop({attr: 'simple'}) simpleText: string;
+  @Prop({attribute: 'active'}) active: boolean = false;
+  @Prop({attribute: 'complex'}) data: {[key: string]: string} | string;
+  @Prop({attribute: 'simple'}) simpleText: string;
 
   render() {
     if (!this.active) return;
