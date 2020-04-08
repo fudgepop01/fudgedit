@@ -37,11 +37,11 @@ abstract class Existing {
     const left = this.makeNew(this.mOffset, position);
     const right = this.makeNew(this.offset + position, this.length - position, this.modified)
     if (left.length === 0) {
-      this.self = right;
+      this.self = [right];
       return [undefined, right];
     }
     if (right.length === 0) {
-      this.self = left;
+      this.self = [left];
       return [left, undefined];
     }
     return (this.self = [ left, right ])
@@ -63,6 +63,7 @@ abstract class Existing {
   get mLength() { return this.length - this.modified }
   get pieces() {
     if (Array.isArray(this.self)) {
+      if (this.self.length === 1) return [...this.self[0].pieces]
       return [...this.self[0].pieces, ...this.self[1].pieces]
     }
     return [this.self];
@@ -127,8 +128,8 @@ export class EditController {
   original: Uint8Array;
   added: Uint8Array = new Uint8Array();
   pieces: Array<anyPiece> = [];
-  undoStack: Array<anyPiece[]> = [];
-  redoStack: Array<anyPiece[]> = [];
+  undoStack: Array<anyPiece> = [];
+  redoStack: Array<[number, anyPiece]> = [];
   inProgress: InProgress;
   chunk: string = '';
 
@@ -168,10 +169,9 @@ export class EditController {
 
 
       this.pieces.splice(targetIndex, 1, ...toInsert);
-      console.log(this.pieces);
     }
 
-    this.undoStack.push([this.inProgress]);
+    this.undoStack.push(this.inProgress);
   }
 
   /**
@@ -232,17 +232,15 @@ export class EditController {
   }
 
   redo() {
-    // if (this.redoStack.length > 0) {
-    //   let newPiece = this.redoStack.pop();
-    //   if (Array.isArray(newPiece)) {
+    if (this.redoStack.length > 0) {
+      const [idx, toAdd] = this.redoStack.pop() as [number, Added];
+      if (toAdd.type === 'insert') {
+        this.pieces.splice(idx, 0, toAdd);
+        this.undoStack.push(toAdd);
+        forceUpdate(this.parent);
+      }
 
-    //   }
-    //   else {
-
-    //   }
-    //   this.pieces.splice(newPiece.index, 0, newPiece);
-    //   this.undoStack.push(this.undoStack.length);
-    // }
+    }
   }
 
   undo() {
@@ -252,12 +250,12 @@ export class EditController {
     }
     if (this.undoStack.length > 0) {
 
-      // get the latest undo step
-      const target = this.undoStack.pop()[0];
+      // get the latest undo
+      const target = this.undoStack.pop();
 
       // get the first piece of that undo step
       const targetIdx = this.pieces.indexOf(target.pieces[0]);
-
+      // debugger;
       // determine type of operation
       if (target instanceof Added && target.type === 'overwrite') {
         // if type was overwrite, then there are more steps necessary
@@ -297,12 +295,11 @@ export class EditController {
 
       } else {
         // if the type was insert then the piece can simply be extracted without issue
-        this.pieces.splice(targetIdx, target.length);
+        this.pieces.splice(targetIdx, 1);
       }
 
 
-      this.redoStack.push([target]);
-      console.log(this.pieces);
+      this.redoStack.push([targetIdx, target]);
       forceUpdate(this.parent);
     }
 
@@ -364,7 +361,7 @@ export class EditController {
     );
     this.pieces[this.inProgress.index] = newAddedPiece;
 
-    this.undoStack[this.undoStack.length - 1][0] = newAddedPiece;
+    this.undoStack[this.undoStack.length - 1] = newAddedPiece;
     this.added = newArr;
     this.inProgress = null;
     this.chunk = '';
