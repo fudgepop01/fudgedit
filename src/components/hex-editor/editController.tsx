@@ -34,10 +34,17 @@ abstract class Existing {
   abstract makeNew(offset: number, length: number, modified?: number): Existing
 
   splitAt(position: number) {
-    return (this.self = [
-      this.makeNew(this.mOffset, position),
-      this.makeNew(this.offset + position, this.length - position, this.modified)
-    ]);
+    const left = this.makeNew(this.mOffset, position);
+    const right = this.makeNew(this.offset + position, this.length - position, this.modified)
+    if (left.length === 0) {
+      this.self = right;
+      return [undefined, right];
+    }
+    if (right.length === 0) {
+      this.self = left;
+      return [left, undefined];
+    }
+    return (this.self = [ left, right ])
   }
 
   isContinuedBy(other: this): other is this {
@@ -130,6 +137,10 @@ export class EditController {
   ) {
     this.original = parent.file;
     this.pieces = [new Original(0, this.original.length)]
+    window['rollback'] = () => {
+      this.rollback();
+      console.log(this.pieces);
+    }
   }
 
   initEdit(offset: number, type: editType) {
@@ -137,30 +148,27 @@ export class EditController {
     this.inProgress = new InProgress(this.added.length, type, this.undoStack.length + 1, -1)
 
     let {targetIndex, targetSlicePoint, target} = this.getPieceAtOffset(offset)
-    if (target instanceof Added) {
+    if (target instanceof Existing) {
       const splitParts = target.splitAt(targetSlicePoint);
-      this.inProgress.index = targetIndex + 1;
-      const toInsert = [
-        splitParts[0],
-        this.inProgress,
-        splitParts[1]
-      ];
+      let toInsert;
+      if (!splitParts[0]) {
+        this.inProgress.index = targetIndex;
+        toInsert = [this.inProgress, splitParts[1]]
+      } else if (!splitParts[1]) {
+        this.inProgress.index = targetIndex + 1;
+        toInsert = [splitParts[0], this.inProgress]
+      } else {
+        this.inProgress.index = targetIndex + 1;
+        toInsert = [
+          splitParts[0],
+          this.inProgress,
+          splitParts[1]
+        ];
+      }
 
-      // const toUpdate = this.undoStack[target.editNum - 1];
-      // toUpdate.splice(toUpdate.indexOf(target), 1, ...splitParts)
 
       this.pieces.splice(targetIndex, 1, ...toInsert);
-    } else if (target instanceof Original) {
-      const splitParts = target.splitAt(targetSlicePoint);
-      console.log(splitParts);
-      this.inProgress.index = targetIndex + 1;
-      const toInsert = [
-        splitParts[0],
-        this.inProgress,
-        splitParts[1]
-      ];
-
-      this.pieces.splice(targetIndex, 1, ...toInsert);
+      console.log(this.pieces);
     }
 
     this.undoStack.push([this.inProgress]);
@@ -176,9 +184,9 @@ export class EditController {
     let targetIndex: number;
     let target: existingPiece;
     for (const [i, piece] of (this.pieces as existingPiece[]).entries()) {
-      tracker += piece.length;
+      tracker += piece.mLength;
       if (tracker >= offset) {
-        targetSlicePoint = piece.length - tracker + offset;
+        targetSlicePoint = piece.mLength - tracker + offset;
         targetIndex = i;
         target = piece;
         break;
@@ -217,10 +225,8 @@ export class EditController {
       lastConsumption.piece.modified -= amount;
       if (lastConsumption.piece.mLength === 0) {
         lastConsumption.consumed = true;
+
         this.pieces.splice(index + 1, 1);
-      } else if (lastConsumption.piece.mLength === -1) {
-        lastConsumption.consumed = true;
-        lastConsumption.piece = this.pieces.splice(index + 1, 2)[1] as existingPiece;
       }
     }
   }
@@ -245,53 +251,58 @@ export class EditController {
       this.chunk = '';
     }
     if (this.undoStack.length > 0) {
-      // const undoStep = this.undoStack.length;
-      const targets = this.undoStack.pop();
-      const targetIdx = this.pieces.indexOf(targets[0].pieces[0]);
 
-      if (targets[0] instanceof Added && targets[0].type === 'overwrite') {
-        const subTargets = targets[0].pieces;
+      // get the latest undo step
+      const target = this.undoStack.pop()[0];
 
-        // console.log(targets[0].consumption);
-        let tpieces = targets[0].consumption.map(t => t.piece.pieces)
-        // console.log(targets[0].consumption);
-        // console.log(targets[0].consumption.map(t => t.piece))
-        // console.log(tpieces);
+      // get the first piece of that undo step
+      const targetIdx = this.pieces.indexOf(target.pieces[0]);
 
-        if (!last(targets[0].consumption).consumed) {
-          const pieces = tpieces.pop()
-          console.log(pieces);
-          pieces[0].modified = last(targets[0].consumption).startMod - (pieces.length - 1) * targets[0].length;
-          // for (const piece of pieces) {
-          //   console.log(piece);
-          //   piece.modified = last(targets[0].consumption).startMod - (pieces.length - 1);
-          //   // tpieces.pop().modified += targets.reduce((p, c) => p + c.length, 0) - tpieces.reduce((p, c) => p + c.length, 0);
-          // }
-          // this.modifyNextPiece(targets.reduce((p, c) => p + c.length, 0) - tpieces.reduce((p, c) => p + c.length, 0), targetIdx + targets.length - 1, targets[0]);
-        } else {
-          console.log(last(tpieces));
-          console.log(targets[0].consumption);
-          last(tpieces).modified = last(targets[0].consumption).startMod
-        }
-        // for (const t of targets[0].consumption) {
-        //   t.piece.modified = t.startMod;
-        // }
-        for (let i = 0; i < targets[0].consumption.length; i++) {
-          targets[0].consumption[i].piece.modified = targets[0].consumption[i].startMod;
+      // determine type of operation
+      if (target instanceof Added && target.type === 'overwrite') {
+        // if type was overwrite, then there are more steps necessary
+        // due to the potential to consume other pieces,
+        // all of which will need to be restored
+
+
+        // restore all pieces that have been FULLY consumed
+        // store those that have only been partially consumed
+        const restored = [];
+        const partiallyConsumed: (typeof Added.prototype.consumption) = []
+        for (const t of target.consumption) {
+          if (t.consumed) {
+            t.piece.modified = t.startMod
+            restored.push(t.piece)
+          } else {
+            partiallyConsumed.push(t);
+          }
         }
 
-        // // this.modifyNextPiece(targets.reduce((p, c) => p + c.length, 0) - tpieces.reduce((p, c) => p + c.length, 0), targetIdx + targets.length - 1);
+        // put restored pieces back while removing target
+        this.pieces.splice(targetIdx, target.pieces.length, ...restored)
 
-        this.pieces.splice(targetIdx, targets.length, ...tpieces.map(p => p[0]));
+        // due to the nature of undo, the stored piece might actually be multiple
+        // pieces. This is kept track of with the piece's 'self' variable.
+        if (partiallyConsumed.length) {
+          if (!partiallyConsumed[0].piece.isSelf) {
+            const pieces = partiallyConsumed[0].piece.pieces;
 
-        // this.pieces.splice(targetIdx, subTargets.length, );
+            // we only need to modify the first one because the others should have been
+            // taken care of by other undo operations (in theory)
+            pieces[0].modified = partiallyConsumed[0].startMod - partiallyConsumed[0].piece.modified;
+          } else {
+            partiallyConsumed[0].piece.modified = partiallyConsumed[0].startMod;
+          }
+        }
+
       } else {
-        this.pieces.splice(targetIdx, targets.length);
+        // if the type was insert then the piece can simply be extracted without issue
+        this.pieces.splice(targetIdx, target.length);
       }
 
 
-      this.redoStack.push(targets);
-      // console.log(this.pieces);
+      this.redoStack.push([target]);
+      console.log(this.pieces);
       forceUpdate(this.parent);
     }
 
