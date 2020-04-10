@@ -118,6 +118,10 @@
       <label for="asciiInline">ascii inline?:</label>
       <input type="number" name="asciiInline" id="asciiInline" value="0" min="0" max="1" onchange="document.getElementById('editor').setAttribute('ascii-inline', event.target.value === '1')">
 
+      <label for="displayAscii">display ascii?:</label>
+      <input type="number" name="displayAscii" id="displayAscii" value="1" min="0" max="1" onchange="document.getElementById('editor').setAttribute('display-ascii', event.target.value === '1')">
+
+
       <label for="regionDepth">region depth:</label>
       <input type="number" name="regionDepth" id="regionDepth" value="2" onchange="document.getElementById('editor').setAttribute('region-depth', event.target.value)">
 

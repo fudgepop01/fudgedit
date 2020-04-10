@@ -40,7 +40,7 @@ abstract class Existing {
       this.self = [right];
       return [undefined, right];
     }
-    if (right.length === 0) {
+    if (right.mLength === 0) {
       this.self = [left];
       return [left, undefined];
     }
@@ -129,7 +129,7 @@ export class EditController {
   added: Uint8Array = new Uint8Array();
   pieces: Array<anyPiece> = [];
   undoStack: Array<anyPiece> = [];
-  redoStack: Array<[number, anyPiece]> = [];
+  redoStack: Array<[Existing, number, anyPiece]> = [];
   inProgress: InProgress;
   chunk: string = '';
 
@@ -142,6 +142,7 @@ export class EditController {
       this.rollback();
       console.log(this.pieces);
     }
+    window['ec'] = this;
   }
 
   initEdit(offset: number, type: editType) {
@@ -231,14 +232,70 @@ export class EditController {
     }
   }
 
+  find(content: string, from: number) {
+    // Boyer-Moore string search algorighm:
+    // https://en.wikipedia.org/wiki/Boyer%E2%80%93Moore_string-search_algorithm
+
+    const searchArr = content.split('').map(ch => ch.charCodeAt(0));
+    const results = [];
+
+    let myChunk = this.render(from, this.length).out;
+    let inf = 0;
+    for (let i = searchArr.length; i < myChunk.length; i++) {
+      if (myChunk[i] === searchArr[searchArr.length - 1]) {
+        for (let j = searchArr.length - 1; j >= 0; j--) {
+          if (j === 0) {
+            results.push(i + from - searchArr.length + 1);
+            break;
+          }
+          if (myChunk[i - (searchArr.length - j)] !== searchArr[j - 1]) {
+            i += (j - 1);
+            break;
+          }
+        }
+      } else {
+        const searchIdx = searchArr.lastIndexOf(myChunk[i]);
+        if (searchIdx === -1) i += searchArr.length - 1;
+        else {
+          i += searchArr.length - searchIdx - 2;
+        }
+      }
+      // JUUUST to be sure there's no infinite loop
+      inf++
+      if (inf > 1000) break;
+    }
+
+
+    return results.map(v => v.toString(16));
+  }
+
   redo() {
     if (this.redoStack.length > 0) {
-      const [idx, toAdd] = this.redoStack.pop() as [number, Added];
+      const [neighbor, startMod, toAdd] = this.redoStack.pop() as [Existing, number, Added];
+      console.log(toAdd);
+      const idx = this.pieces.indexOf(neighbor);
+      // console.log(idx);
+
       if (toAdd.type === 'insert') {
-        this.pieces.splice(idx, 0, toAdd);
-        this.undoStack.push(toAdd);
-        forceUpdate(this.parent);
+        this.pieces.splice(idx, 0, ...toAdd.pieces);
+      } else {
+        let partialConsume = 0;
+        let lp = last(toAdd.consumption);
+        if (!lp.consumed) partialConsume = 1;
+        console.log(startMod);
+        if (!isNaN(startMod)) {
+          if (!lp.piece.isSelf) {
+            console.log(lp.piece.pieces[0])
+            lp.piece.pieces[0].modified = startMod;
+          } else {
+            lp.piece.modified = startMod;
+          }
+        }
+        this.pieces.splice(idx, toAdd.consumption.length - partialConsume, ...toAdd.pieces);
       }
+
+      this.undoStack.push(toAdd);
+      forceUpdate(this.parent);
 
     }
   }
@@ -255,7 +312,9 @@ export class EditController {
 
       // get the first piece of that undo step
       const targetIdx = this.pieces.indexOf(target.pieces[0]);
-      // debugger;
+      let neighbor;
+      let lastMod = NaN;
+
       // determine type of operation
       if (target instanceof Added && target.type === 'overwrite') {
         // if type was overwrite, then there are more steps necessary
@@ -279,27 +338,35 @@ export class EditController {
         // put restored pieces back while removing target
         this.pieces.splice(targetIdx, target.pieces.length, ...restored)
 
-        // due to the nature of undo, the stored piece might actually be multiple
+        // store the neighbor
+        neighbor = this.pieces[targetIdx];
+
+        // due to not "rolling back" every undo, the stored piece might actually be multiple
         // pieces. This is kept track of with the piece's 'self' variable.
         if (partiallyConsumed.length) {
+          // store the modified value of the partially consumed piece for redo
           if (!partiallyConsumed[0].piece.isSelf) {
             const pieces = partiallyConsumed[0].piece.pieces;
 
             // we only need to modify the first one because the others should have been
             // taken care of by other undo operations (in theory)
+            lastMod = pieces[0].modified;
             pieces[0].modified = partiallyConsumed[0].startMod - partiallyConsumed[0].piece.modified;
           } else {
+            lastMod = partiallyConsumed[0].piece.modified;
             partiallyConsumed[0].piece.modified = partiallyConsumed[0].startMod;
           }
         }
 
       } else {
         // if the type was insert then the piece can simply be extracted without issue
-        this.pieces.splice(targetIdx, 1);
+        this.pieces.splice(targetIdx, target.pieces.length);
+        // store the neighbor
+        neighbor = this.pieces[targetIdx];
       }
 
 
-      this.redoStack.push([targetIdx, target]);
+      this.redoStack.push([neighbor as Existing, lastMod, target]);
       forceUpdate(this.parent);
     }
 
@@ -314,6 +381,7 @@ export class EditController {
   }
 
   buildEdit(keyStroke: KeyboardEvent) {
+    if (!this.parent.cursor) return;
     if (keyStroke.key === 'Z' && (keyStroke.metaKey || keyStroke.ctrlKey)) {
       this.redo()
       return;
@@ -370,7 +438,7 @@ export class EditController {
   rollback() {
     let chopLength = 0;
     while(this.redoStack.length > 0) {
-      chopLength += this.redoStack.pop().length
+      chopLength += this.redoStack.pop()[2].length
     }
 
     let newArr = new Uint8Array(this.added.length - chopLength);

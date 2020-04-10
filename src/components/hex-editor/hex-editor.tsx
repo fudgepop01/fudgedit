@@ -193,7 +193,7 @@ export class HexEditor {
   // SECTION COMPONENT LIFECYCLE METHODS
 
   componentWillLoad() {
-    this.file = new Uint8Array(256).map((_, i) => i);
+    this.file = new Uint8Array(1024).map((_, i) => i % 256);
 
     this.editController = new EditController(this);
     this.regionScaleWidth = 28;
@@ -426,7 +426,7 @@ export class HexEditor {
                 document.documentElement.style.setProperty('--mouse-x', `${evt.clientX}`);
                 document.documentElement.style.setProperty('--mouse-y', `${evt.clientY}`);
                 document.getElementById('tooltip').setAttribute('active', 'true')
-                document.getElementById('tooltip').setAttribute('complex', '${JSON.stringify({...region, subRegions: region.subRegions ? region.subRegions.map(sr => sr.name) : null})}');
+                document.getElementById('tooltip').setAttribute('complex', `${JSON.stringify({...region, subRegions: region.subRegions ? region.subRegions.map(sr => sr.name) : null})}`);
 
                 setTimeout(() => {this.canUpdateMouseMove = true}, 50);
               }
