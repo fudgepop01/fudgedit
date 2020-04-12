@@ -232,13 +232,13 @@ export class EditController {
     }
   }
 
-  find(searchArr: number[], from: number) {
+  find(searchArr: number[], from: number, maxLength?: number) {
     // Boyer-Moore string search algorighm:
     // https://en.wikipedia.org/wiki/Boyer%E2%80%93Moore_string-search_algorithm
 
     const results = [];
 
-    let myChunk = this.render(from, this.length - from).out;
+    let myChunk = this.render(from, maxLength ? maxLength : this.length - from).out;
     let inf = 0;
     for (let i = searchArr.length; i < myChunk.length; i++) {
       if (myChunk[i] === searchArr[searchArr.length - 1]) {
@@ -272,7 +272,6 @@ export class EditController {
   redo() {
     if (this.redoStack.length > 0) {
       const [neighbor, startMod, toAdd] = this.redoStack.pop() as [Existing, number, Added];
-      console.log(toAdd);
       const idx = this.pieces.indexOf(neighbor);
       // console.log(idx);
 
@@ -282,10 +281,8 @@ export class EditController {
         let partialConsume = 0;
         let lp = last(toAdd.consumption);
         if (!lp.consumed) partialConsume = 1;
-        console.log(startMod);
         if (!isNaN(startMod)) {
           if (!lp.piece.isSelf) {
-            console.log(lp.piece.pieces[0])
             lp.piece.pieces[0].modified = startMod;
           } else {
             lp.piece.modified = startMod;

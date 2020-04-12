@@ -51,6 +51,16 @@ export namespace Components {
          */
         "editType": "insert" | "overwrite" | "readonly";
         /**
+          * executes a search in the currently loaded file with the supplied parameters
+          * @param text
+          * @param searchType
+          * @param range
+          * @param searchByteCount
+          * @param searchEndian
+          * @memberof HexEditor
+         */
+        "executeSearch": (text: string, searchType: "ascii" | "byte" | "integer" | "float", range?: [number, number], searchByteCount?: 2 | 1 | 4 | 8, searchEndian?: "big" | "little") => Promise<number[]>;
+        /**
           * fetches a Uint8Array of a given length at the given location
           * @param location where to fetch the data from
           * @param length how many bytes to load
@@ -97,15 +107,6 @@ export namespace Components {
           * @memberof HexEditor
          */
         "saveFile": () => Promise<void | Uint8Array>;
-        "searchByteCount": 1 | 2 | 4 | 8;
-        "searchEndian": "big" | "little";
-        "searchInput": string;
-        /**
-          * the type of search to be executed
-          * @type {('ascii' | 'byte' | 'integer' | 'float')}
-          * @memberof HexEditor
-         */
-        "searchType": "ascii" | "byte" | "integer" | "float";
         /**
           * sets the new cursor position
           * @param newCursorPosition
@@ -245,15 +246,6 @@ declare namespace LocalJSX {
           * @memberof HexEditor
          */
         "regions"?: IRegion[];
-        "searchByteCount"?: 1 | 2 | 4 | 8;
-        "searchEndian"?: "big" | "little";
-        "searchInput"?: string;
-        /**
-          * the type of search to be executed
-          * @type {('ascii' | 'byte' | 'integer' | 'float')}
-          * @memberof HexEditor
-         */
-        "searchType"?: "ascii" | "byte" | "integer" | "float";
     }
     interface FudgeHexTooltip {
         "active"?: boolean;

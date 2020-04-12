@@ -1,4 +1,4 @@
-import { Component, State, Prop, Method, Event, EventEmitter, h } from '@stencil/core';
+import { Component, State, Prop, Method, Event, EventEmitter, h, forceUpdate } from '@stencil/core';
 import { EditController } from './editController';
 import { IRegion } from './interfaces';
 import { floatToBin } from './floatConverter';
@@ -45,6 +45,19 @@ export class HexEditor {
   @State() cursor: number;
   // keeps track of what part of the editor was last clicked
   @State() asciiMode: boolean;
+
+  // the type of search to be executed
+  @State() searchType: 'ascii' | 'byte' | 'integer' | 'float' = 'ascii';
+  // number of bytes the search should have (used when integer or float)
+  @State() searchByteCount: 1 | 2 | 4 | 8 = 1;
+  // endianness of the search
+  @State() searchEndian: 'big' | 'little' = 'big';
+  // input to search for
+  @State() searchInput: string = '';
+  // results of the search
+  @State() searchResults: number[] = [];
+  // whether or not to display the search window
+  @State() searchActive: boolean = false;
 
   // !SECTION
 
@@ -148,20 +161,6 @@ export class HexEditor {
    */
   @Prop() regions: IRegion[] = [];
 
-  /**
-   * the type of search to be executed
-   *
-   * @type {('ascii' | 'byte' | 'integer' | 'float')}
-   * @memberof HexEditor
-   */
-  @Prop() searchType: 'ascii' | 'byte' | 'integer' | 'float' = 'ascii';
-
-  @Prop() searchByteCount: 1 | 2 | 4 | 8 = 1;
-
-  @Prop() searchEndian: 'big' | 'little' = 'big';
-
-  @Prop() searchInput: string = '';
-
   // !SECTION
 
   // SECTION EVENTS
@@ -264,8 +263,9 @@ export class HexEditor {
    */
   @Method()
   async setLineNumber(newLineNumber: number) {
-    this.lineNumber = newLineNumber;
-    this.hexLineChanged.emit(newLineNumber);
+    if (newLineNumber < 0) this.lineNumber = 0;
+    else this.lineNumber = newLineNumber;
+    this.hexLineChanged.emit(this.lineNumber);
   }
 
   /**
@@ -308,6 +308,35 @@ export class HexEditor {
   @Method()
   async getFileMetadata() {
     return this.fileMetadata;
+  }
+
+  /**
+   * executes a search in the currently loaded file with the supplied parameters
+   *
+   * @param {string} text
+   * @param {typeof HexEditor.prototype.searchType} searchType
+   * @param {[number, number]} range
+   * @param {(1 | 2 | 4 | 8)} [searchByteCount]
+   * @param {('big' | 'little')} [searchEndian]
+   * @memberof HexEditor
+   */
+  @Method()
+  async executeSearch(
+    text: string,
+    searchType: typeof HexEditor.prototype.searchType,
+    range?: [number, number],
+    searchByteCount?: 1 | 2 | 4 | 8,
+    searchEndian?: 'big' | 'little',
+  ) {
+    let searchArr;
+    try {
+      searchArr = this.formatSearch(text, searchType, searchByteCount, searchEndian);
+    } catch(e) {
+      console.log(e);
+    }
+
+    this.searchResults = this.editController.find(searchArr, range ? range[0] : 0, range ? range[1] - range[0] : undefined);
+    return this.searchResults;
   }
 
   // !SECTION
@@ -419,8 +448,6 @@ export class HexEditor {
         // provided by 's'
         const l = Math.floor((region.end - region.start + s) / this.bytesPerLine);
 
-
-
         const offset = Math.floor(region.start / this.bytesPerLine) - lineNumber;
 
         const getColor = {
@@ -479,12 +506,71 @@ export class HexEditor {
     }
   }
 
+  /**
+   * edits the underlying uint8array or
+   * adjusts the cursor position
+   *
+   * @param {KeyboardEvent} evt
+   * @returns
+   * @memberof HexEditor
+   */
   edit(evt: KeyboardEvent) {
     if ((evt.target as HTMLElement).className !== 'hex') return;
     if (this.editType === 'readonly') return;
-    this.editController.buildEdit(evt);
+    evt.preventDefault();
+    const evtArrowKeyConditions = {
+      ArrowDown: () => {
+        this.setCursorPosition(
+          (this.cursor + this.bytesPerLine > this.editController.length)
+          ? this.editController.length
+          : this.cursor + this.bytesPerLine)
+      },
+      ArrowUp: () => { this.setCursorPosition((this.cursor - this.bytesPerLine < 0) ? 0 : this.cursor - this.bytesPerLine) },
+      ArrowRight: () => {
+        this.setCursorPosition(
+          (this.cursor + 1 > this.editController.length)
+          ? this.editController.length
+          : this.cursor + 1)
+      },
+      ArrowLeft: () => { this.setCursorPosition((this.cursor - 1 < 0) ? 0 : this.cursor - 1) }
+    }
+    if (evtArrowKeyConditions[evt.key]) {
+      // commits/ends any edits
+      if (this.editController.inProgress) this.editController.commit();
+      // executes key function
+      evtArrowKeyConditions[evt.key]();
+      // adjusts scroll / selection based on new cursor position
+      if (this.cursor > (this.lineNumber + this.maxLines) * this.bytesPerLine - 1)
+        this.setLineNumber(Math.floor(this.cursor / this.bytesPerLine) - this.maxLines + 1)
+      else if (this.cursor < this.lineNumber * this.bytesPerLine)
+        this.setLineNumber(Math.floor(this.cursor / this.bytesPerLine))
+      // adjusts selection if shift key is held
+      if (evt.shiftKey) {
+        if (this.selection.start > this.cursor) this.setSelection({start: this.cursor});
+        else this.setSelection({end: this.cursor});
+      } else {
+        this.setSelection({start: this.cursor, end: this.cursor})
+      }
+    } else if ((evt.ctrlKey || evt.metaKey) && evt.key === 'f') {
+      // toggles find window
+      this.searchActive = !this.searchActive;
+      forceUpdate(this);
+    } else {
+      this.editController.buildEdit(evt);
+    }
   }
 
+  /**
+   * turns the search input from the type into an array of numbers
+   * that represent its binary equivalent in the format specified
+   *
+   * @param {string} text
+   * @param {typeof HexEditor.prototype.searchType} searchType
+   * @param {(1 | 2 | 4 | 8)} [searchByteCount]
+   * @param {('big' | 'little')} [searchEndian]
+   * @returns {number[]}
+   * @memberof HexEditor
+   */
   formatSearch(
     text: string,
     searchType: typeof HexEditor.prototype.searchType,
@@ -516,23 +602,23 @@ export class HexEditor {
     }
   }
 
-  executeSearch(
-    text: string,
-    searchType: typeof HexEditor.prototype.searchType,
-    searchByteCount?: 1 | 2 | 4 | 8,
-    searchEndian?: 'big' | 'little'
-  ) {
-    let searchArr
-    try {
-      searchArr = this.formatSearch(text, searchType, searchByteCount, searchEndian);
-    } catch(e) {
-      console.log(e);
-    }
-
-    const searchResults = this.editController.find(searchArr, (!this.cursor || this.cursor < 0) ? 0 : this.cursor)
-    this.setCursorPosition(searchResults[0]);
-    this.setLineNumber(Math.max(0, Math.floor(searchResults[0] / this.bytesPerLine) - this.maxLines / 2));
-    this.setSelection({start: searchResults[0], end: searchResults[0] + searchArr.length - 1});
+  /**
+   * triggers a find operation on the currently selected chunk
+   * if there is one, otherwise it searches the full thing
+   *
+   * @memberof HexEditor
+   */
+  async findInSelection() {
+    const range = this.selection ? this.selection.end - this.selection.start : 0;
+    this.searchResults =
+      await this.executeSearch(
+        this.searchInput,
+        this.searchType,
+        range === 0
+          ? undefined
+          : [ this.selection.start, this.selection.end ],
+        this.searchByteCount,
+        this.searchEndian);
   }
 
   /**
@@ -549,6 +635,23 @@ export class HexEditor {
     } catch (e) {
       if (e.message.startsWith('LEN0')) searchHexDisplay = '';
       else searchHexDisplay = e.message;
+    }
+
+    let searchResults;
+    if (this.searchActive) {
+      const jumpToResult = (val: string) => {
+        let v = parseInt(val);
+        this.setCursorPosition(v);
+        this.setSelection({start: v, end: v + ((['integer', 'float'].includes(this.searchType)) ? this.searchByteCount : this.searchInput.length) - 1 })
+        this.setLineNumber(Math.floor(v / this.bytesPerLine) - this.maxLines / 2)
+      }
+      searchResults = (
+        <select onChange={(evt) => jumpToResult((evt.target as HTMLSelectElement).value)}>
+          {this.searchResults.map(v =>
+            <option value={v}>{`0x${v.toString(16)}`}</option>
+          )}
+        </select>
+      )
     }
 
     return (
@@ -578,32 +681,34 @@ export class HexEditor {
             {charViews}
           </div>
           : null}
-        <div class="find">
-          search:
-          <input type="text" onChange={(evt) => this.searchInput = (evt.target as HTMLInputElement).value} />
-          <select onChange={(evt) => this.searchType = (evt.target as HTMLSelectElement).value as any}>
-            <option value="ascii">ASCII string</option>
-            <option value="byte">bytes</option>
-            <option value="integer">integer</option>
-            <option value="float">float</option>
-          </select>
-          {(['integer', 'float'].includes(this.searchType)) ? [
-            <select onChange={(evt) => this.searchByteCount = parseInt((evt.target as HTMLSelectElement).value) as any}>
-              <option value="1">1 byte</option>
-              <option value="2">2 bytes</option>
-              <option value="4">4 bytes</option>
-              <option value="8">8 bytes</option>
-            </select>,
-            <select onChange={(evt) => this.searchEndian = (evt.target as HTMLSelectElement).value as any}>
-              <option value="big">big endian</option>
-              <option value="little">little endian</option>
+        {this.searchActive ?
+          <div class="find">
+            search:
+            <input type="text" onChange={(evt) => this.searchInput = (evt.target as HTMLInputElement).value} />
+            <select onChange={(evt) => this.searchType = (evt.target as HTMLSelectElement).value as any}>
+              <option value="ascii">ASCII string</option>
+              <option value="byte">bytes</option>
+              <option value="integer">integer</option>
+              <option value="float">float</option>
             </select>
-          ]
-          : null}
-          <button onClick={() => this.executeSearch(this.searchInput, this.searchType, this.searchByteCount, this.searchEndian)}>search</button>
-          <br/>
-          {searchHexDisplay}
-        </div>
+            {(['integer', 'float'].includes(this.searchType)) ? [
+              <select onChange={(evt) => this.searchByteCount = parseInt((evt.target as HTMLSelectElement).value) as any}>
+                <option value="1">1 byte</option>
+                <option value="2">2 bytes</option>
+                <option value="4">4 bytes</option>
+                <option value="8">8 bytes</option>
+              </select>,
+              <select onChange={(evt) => this.searchEndian = (evt.target as HTMLSelectElement).value as any}>
+                <option value="big">big endian</option>
+                <option value="little">little endian</option>
+              </select>
+            ]
+            : null}
+            <button onClick={() => this.findInSelection()}>search</button>
+            <br/>
+            hex: {searchHexDisplay} | results: {searchResults}
+          </div>
+        : null}
       </div>
     );
   }
