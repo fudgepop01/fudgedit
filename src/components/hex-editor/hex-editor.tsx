@@ -1,6 +1,7 @@
 import { Component, State, Prop, Method, Event, EventEmitter, h } from '@stencil/core';
 import { EditController } from './editController';
 import { IRegion } from './interfaces';
+import { floatToBin } from './floatConverter';
 
 @Component({
   tag: 'fudge-hex-editor',
@@ -146,6 +147,20 @@ export class HexEditor {
    * @memberof HexEditor
    */
   @Prop() regions: IRegion[] = [];
+
+  /**
+   * the type of search to be executed
+   *
+   * @type {('ascii' | 'byte' | 'integer' | 'float')}
+   * @memberof HexEditor
+   */
+  @Prop() searchType: 'ascii' | 'byte' | 'integer' | 'float' = 'ascii';
+
+  @Prop() searchByteCount: 1 | 2 | 4 | 8 = 1;
+
+  @Prop() searchEndian: 'big' | 'little' = 'big';
+
+  @Prop() searchInput: string = '';
 
   // !SECTION
 
@@ -465,10 +480,59 @@ export class HexEditor {
   }
 
   edit(evt: KeyboardEvent) {
+    if ((evt.target as HTMLElement).className !== 'hex') return;
     if (this.editType === 'readonly') return;
-    const editController = this.editController;
-    // if (!editController.inProgress) editController.initEdit(this.cursor, this.editType);
-    editController.buildEdit(evt);
+    this.editController.buildEdit(evt);
+  }
+
+  formatSearch(
+    text: string,
+    searchType: typeof HexEditor.prototype.searchType,
+    searchByteCount?: 1 | 2 | 4 | 8,
+    searchEndian?: 'big' | 'little'
+  ): number[] {
+    if (text.length === 0) throw new Error('LEN0: there needs to be something to search for...');
+    switch(searchType) {
+      case 'integer':
+        const max = parseInt('0x' + new Array(searchByteCount + 1).join('FF'), 16);
+        let v = parseInt(text);
+        if (Math.abs(v) > max) {
+          v = max * Math.sign(v);
+        }
+        const out = v.toString(16).padStart(2 * searchByteCount, '0').match(/.{2}/g).map(v => parseInt(v, 16));
+        if (searchEndian === 'little') out.reverse();
+        return out;
+      case 'float':
+        console.log(parseFloat(text))
+        return floatToBin(parseFloat(text), searchByteCount, searchEndian)
+      case 'byte':
+        if (/[^0-9a-f ,|;]/ig.test(text)) throw new Error('UC: Unexpected Character (must be exclusively 0-9 and a-f)')
+        else {
+          return text.replace(/[ ,|;]/ig, '').match(/.{2}/g).map(v => parseInt(v, 16));
+        }
+      case 'ascii':
+      default:
+        return text.split('').map(ch => ch.charCodeAt(0));
+    }
+  }
+
+  executeSearch(
+    text: string,
+    searchType: typeof HexEditor.prototype.searchType,
+    searchByteCount?: 1 | 2 | 4 | 8,
+    searchEndian?: 'big' | 'little'
+  ) {
+    let searchArr
+    try {
+      searchArr = this.formatSearch(text, searchType, searchByteCount, searchEndian);
+    } catch(e) {
+      console.log(e);
+    }
+
+    const searchResults = this.editController.find(searchArr, (!this.cursor || this.cursor < 0) ? 0 : this.cursor)
+    this.setCursorPosition(searchResults[0]);
+    this.setLineNumber(Math.max(0, Math.floor(searchResults[0] / this.bytesPerLine) - this.maxLines / 2));
+    this.setSelection({start: searchResults[0], end: searchResults[0] + searchArr.length - 1});
   }
 
   /**
@@ -476,6 +540,16 @@ export class HexEditor {
    */
   showHex() {
     const { lineViews, charViews, lineLabels, regionMarkers } = this.buildHexView();
+
+    let searchHexDisplay;
+    try {
+      searchHexDisplay =
+        this.formatSearch(this.searchInput, this.searchType, this.searchByteCount, this.searchEndian)
+          .map(v => v.toString(16).padStart(2, '0')).join(', ');
+    } catch (e) {
+      if (e.message.startsWith('LEN0')) searchHexDisplay = '';
+      else searchHexDisplay = e.message;
+    }
 
     return (
       <div class="hex"
@@ -504,6 +578,32 @@ export class HexEditor {
             {charViews}
           </div>
           : null}
+        <div class="find">
+          search:
+          <input type="text" onChange={(evt) => this.searchInput = (evt.target as HTMLInputElement).value} />
+          <select onChange={(evt) => this.searchType = (evt.target as HTMLSelectElement).value as any}>
+            <option value="ascii">ASCII string</option>
+            <option value="byte">bytes</option>
+            <option value="integer">integer</option>
+            <option value="float">float</option>
+          </select>
+          {(['integer', 'float'].includes(this.searchType)) ? [
+            <select onChange={(evt) => this.searchByteCount = parseInt((evt.target as HTMLSelectElement).value) as any}>
+              <option value="1">1 byte</option>
+              <option value="2">2 bytes</option>
+              <option value="4">4 bytes</option>
+              <option value="8">8 bytes</option>
+            </select>,
+            <select onChange={(evt) => this.searchEndian = (evt.target as HTMLSelectElement).value as any}>
+              <option value="big">big endian</option>
+              <option value="little">little endian</option>
+            </select>
+          ]
+          : null}
+          <button onClick={() => this.executeSearch(this.searchInput, this.searchType, this.searchByteCount, this.searchEndian)}>search</button>
+          <br/>
+          {searchHexDisplay}
+        </div>
       </div>
     );
   }
@@ -521,8 +621,11 @@ export class HexEditor {
   }
 
   endSelection(evt: any) {
-    if ((evt.target as HTMLElement).id === 'HEX-SCROLLBAR') return;
-    this.asciiMode = (evt.target as HTMLElement).parentElement.className.includes('charLine');
+    const parentClassName = (evt.target as HTMLElement).parentElement.className;
+    if (!(parentClassName.includes('charLine') || parentClassName.includes('hexLine'))) {
+      return;
+    }
+    this.asciiMode = parentClassName.includes('charLine');
 
     const chosen =
       this.lineNumber * this.bytesPerLine +

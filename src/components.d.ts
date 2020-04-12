@@ -97,6 +97,15 @@ export namespace Components {
           * @memberof HexEditor
          */
         "saveFile": () => Promise<void | Uint8Array>;
+        "searchByteCount": 1 | 2 | 4 | 8;
+        "searchEndian": "big" | "little";
+        "searchInput": string;
+        /**
+          * the type of search to be executed
+          * @type {('ascii' | 'byte' | 'integer' | 'float')}
+          * @memberof HexEditor
+         */
+        "searchType": "ascii" | "byte" | "integer" | "float";
         /**
           * sets the new cursor position
           * @param newCursorPosition
@@ -236,6 +245,15 @@ declare namespace LocalJSX {
           * @memberof HexEditor
          */
         "regions"?: IRegion[];
+        "searchByteCount"?: 1 | 2 | 4 | 8;
+        "searchEndian"?: "big" | "little";
+        "searchInput"?: string;
+        /**
+          * the type of search to be executed
+          * @type {('ascii' | 'byte' | 'integer' | 'float')}
+          * @memberof HexEditor
+         */
+        "searchType"?: "ascii" | "byte" | "integer" | "float";
     }
     interface FudgeHexTooltip {
         "active"?: boolean;

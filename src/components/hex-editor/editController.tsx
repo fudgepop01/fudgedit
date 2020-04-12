@@ -232,14 +232,13 @@ export class EditController {
     }
   }
 
-  find(content: string, from: number) {
+  find(searchArr: number[], from: number) {
     // Boyer-Moore string search algorighm:
     // https://en.wikipedia.org/wiki/Boyer%E2%80%93Moore_string-search_algorithm
 
-    const searchArr = content.split('').map(ch => ch.charCodeAt(0));
     const results = [];
 
-    let myChunk = this.render(from, this.length).out;
+    let myChunk = this.render(from, this.length - from).out;
     let inf = 0;
     for (let i = searchArr.length; i < myChunk.length; i++) {
       if (myChunk[i] === searchArr[searchArr.length - 1]) {
@@ -255,6 +254,7 @@ export class EditController {
         }
       } else {
         const searchIdx = searchArr.lastIndexOf(myChunk[i]);
+
         if (searchIdx === -1) i += searchArr.length - 1;
         else {
           i += searchArr.length - searchIdx - 2;
@@ -262,11 +262,11 @@ export class EditController {
       }
       // JUUUST to be sure there's no infinite loop
       inf++
-      if (inf > 1000) break;
+      if (inf > 10000) break;
     }
 
 
-    return results.map(v => v.toString(16));
+    return results;
   }
 
   redo() {
@@ -381,7 +381,7 @@ export class EditController {
   }
 
   buildEdit(keyStroke: KeyboardEvent) {
-    if (!this.parent.cursor) return;
+    if (!this.parent.cursor || this.parent.cursor === -1) return;
     if (keyStroke.key === 'Z' && (keyStroke.metaKey || keyStroke.ctrlKey)) {
       this.redo()
       return;
