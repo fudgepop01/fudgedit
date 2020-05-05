@@ -38,13 +38,15 @@ export class HexEditor {
   @State() lineNumber: number = 0;
 
   // stores position of mousedown event
-  tempSelection: number;
+  tempSelection: {byte: number, bit: number};
   // keeps track of selected portion of hex/ascii
-  @State() selection: {start: number, end: number};
+  @State() selection: {start: number, startBit: number, end: number, endBit: number};
   // keeps track of where exactly the cursor is
   @State() cursor: number;
+  // keeps track of the bit the cursor has selected (if in binary mode)
+  @State() bit: number;
   // keeps track of what part of the editor was last clicked
-  @State() asciiMode: boolean;
+  @State() editingMode: 'ascii' | 'byte' | 'bit';
 
   // the type of search to be executed
   @State() searchType: 'ascii' | 'byte' | 'integer' | 'float' = 'ascii';
@@ -72,6 +74,22 @@ export class HexEditor {
   @Prop() displayAscii: boolean = true;
 
   /**
+   * weather or not to display Hex
+   *
+   * @type {boolean}
+   * @memberof HexEditor
+   */
+  @Prop() displayHex: boolean = true;
+
+  /**
+   * weather or not to display binary
+   *
+   * @type {boolean}
+   * @memberof HexEditor
+   */
+  @Prop() displayBin: boolean = false;
+
+  /**
    * the number of lines to display at once
    *
    * @type {number}
@@ -88,13 +106,25 @@ export class HexEditor {
   @Prop() bytesPerLine: number = 16;
 
   /**
-   * currently does nothing
-   * it WOULD force a line break every X bytes
-   * @type {number}
+   * definitions for each chunk to display when
+   * displayAsChunks is enabled
+   *
+   * @type {number[]}
    * @memberof HexEditor
-   * @deprecated
    */
-  @Prop() bytesUntilForcedLine: number = 0;
+  @Prop() chunks: {
+    title?: string;
+    start: number;
+    end: number;
+  }[] = [];
+
+  /**
+   * displays the file as chunks (defined above)
+   *
+   * @type {boolean}
+   * @memberof HexEditor
+   */
+  @Prop() displayAsChunks: boolean = false;
 
   /**
    * weather or not to replace typical ASCII values
@@ -112,7 +142,16 @@ export class HexEditor {
    * @type {number}
    * @memberof HexEditor
    */
-  @Prop() chunksPerGroup: number = 4;
+  @Prop() bytesPerGroup: number = 4;
+
+  /**
+   * the number of bits between separators
+   * on the bit display
+   *
+   * @type {number}
+   * @memberof HexEditor
+   */
+  @Prop() bitsPerGroup: number = 8;
 
   /**
    * the mode of operation:
@@ -128,7 +167,7 @@ export class HexEditor {
    * @type {("region" | "edit" | "noregion")}
    * @memberof HexEditor
    */
-  @Prop() mode: "region" | "edit" | "noregion" = "edit";
+  @Prop() mode: "region" | "select" | "noregion" = "select";
 
   /**
    * the mode of data entry:
@@ -142,7 +181,7 @@ export class HexEditor {
    * @type {("insert" | "overwrite" | "readonly")}
    * @memberof HexEditor
    */
-  @Prop() editType: "insert" | "overwrite" | "readonly" = "overwrite";
+  @Prop() editType: "insert" | "overwrite" | "readonly" = "readonly";
 
   /**
    * the number of regions to traverse
@@ -275,8 +314,17 @@ export class HexEditor {
    * @memberof HexEditor
    */
   @Method()
-  async setCursorPosition(newCursorPosition: number) {
-    this.cursor = newCursorPosition;
+  async setCursorPosition(newCursorPosition: number, bit?: number) {
+    if (bit) {
+      let adjustMain = 0;
+      if (bit >= 8) adjustMain = Math.floor(bit / 8);
+      this.cursor = newCursorPosition + adjustMain;
+      this.bit = bit % 8;
+    } else {
+      this.cursor = newCursorPosition;
+    }
+
+    this.hexCursorChanged.emit({byte: this.cursor, bit: this.bit});
   }
 
   /**
@@ -285,8 +333,9 @@ export class HexEditor {
    * @memberof HexEditor
    */
   @Method()
-  async setSelection(newSelection: {start?: number, end?: number}) {
+  async setSelection(newSelection: {start?: number, end?: number, startBit?: number, endBit?: number}) {
     this.selection = {...this.selection, ...newSelection};
+    this.hexSelectionChanged.emit(this.selection);
   }
 
   /**
@@ -347,7 +396,7 @@ export class HexEditor {
    * builds the elements responsible for the hex view
    */
   buildHexView() {
-    const { lineNumber, maxLines, bytesPerLine, chunksPerGroup, /* bytesUntilForcedLine, */ asciiInline } = this;
+    const { lineNumber, maxLines, bytesPerLine, bytesPerGroup, bitsPerGroup, asciiInline } = this;
     const start = lineNumber * bytesPerLine;
 
     const chunkData = this.editController.render(start, maxLines * bytesPerLine);
@@ -359,6 +408,7 @@ export class HexEditor {
       lines.push(chunk.subarray(i * bytesPerLine, (i+1) * bytesPerLine));
     }
 
+    const binViews = [];
     const lineViews = [];
     const charViews = [];
     let selectedLine = -1;
@@ -367,6 +417,7 @@ export class HexEditor {
 
       // setup variables
       const base = start + lineNum * bytesPerLine;
+      const binLines = [];
       const charLines = [];
       const hexLines = [];
       let ascii = '•';
@@ -384,8 +435,8 @@ export class HexEditor {
         // classes
         const classList = [];
         if (out.startsWith('.')) classList.push('ASCII');
-        if (position % chunksPerGroup === chunksPerGroup - 1) classList.push('padByte');
-        if (this.cursor === base + position) {
+        if (position % bytesPerGroup === bytesPerGroup - 1) classList.push('padByte');
+        if (Math.floor(this.cursor) === base + position) {
           classList.push('cursor');
           selectedLine = lineNum;
         }
@@ -397,15 +448,50 @@ export class HexEditor {
           }
         }
 
-        charLines.push(<span class={classList.join(' ')}>{ascii}</span>);
-        hexLines.push(<span class={classList.join(' ')}>{out}</span>);
+        // binary spans are more complicated than the others
+        // they are split into 8 pieces (the 8 bits that make up a byte)
+        let binArr = val.toString(2).padStart(8, '0').split('');
+        let binSpans = [];
+        if (this.displayBin) {
+          for (let i = 0; i < binArr.length; i++) {
+            let binClass = '';
+            if ((position * 8 + i) % bitsPerGroup == bitsPerGroup - 1) binClass += 'padBit';
+            if (classList.includes('cursor') && (this.bit === i || this.bit === -1)) binClass += ' cursor';
+            if (classList.includes('selected')) {
+              if (this.selection.start === this.selection.end) {
+                if (i >= this.selection.startBit && i <= this.selection.endBit)
+                  binClass += ' selected';
+              }
+              else if (this.selection.start === base + position) {
+                if (i >= this.selection.startBit) binClass += ' selected';
+              }
+              else if (this.selection.end === base + position) {
+                if (i <= this.selection.endBit || this.selection.endBit === -1) binClass += ' selected';
+              }
+              else binClass += ' selected';
+            }
+            binSpans.push(<span data-cursor-idx={i} class={binClass}>{binArr[i]}</span>);
+          }
+        }
+
+        if (this.displayBin) binLines.push(<span data-cursor-idx={base + position} class={"binGroup" + (classList.includes('added') ? ' added' : '')}>{binSpans}</span>)
+        if (this.displayAscii) charLines.push(<span data-cursor-idx={base + position} class={classList.join(' ')}>{ascii}</span>);
+        if (this.displayHex) hexLines.push(<span data-cursor-idx={base + position} class={classList.join(' ')}>{out}</span>);
       }
 
-      lineViews.push((
-        <div class={'hexLine' + (selectedLine === lineNum ? ' selected' : '')}>{hexLines}</div>
-      ));
+      if (this.displayBin) binViews.push((
+        <div class={'binLine' + (selectedLine === lineNum ? ' selected' : '')}>{binLines}</div>
+      ))
 
-      charViews.push((
+      if (this.displayHex) {
+        lineViews.push((
+          <div class={'hexLine' + (selectedLine === lineNum ? ' selected' : '')}>{hexLines}</div>
+        ));
+      } else {
+        lineViews.push({});
+      }
+
+      if (this.displayAscii) charViews.push((
         <div class={'charLine' + (selectedLine === lineNum ? ' selected' : '')}>{charLines}</div>
       ))
 
@@ -413,6 +499,7 @@ export class HexEditor {
 
     // fill extra space
     while (lineViews.length < maxLines) {
+      binViews.push(<div class="binLine" style={{pointerEvents: 'none'}}><span>-</span></div>);
       lineViews.push(<div class="hexLine" style={{pointerEvents: 'none'}}><span>-</span></div>);
       charViews.push(<div class="charLine" style={{pointerEvents: 'none'}}><span>-</span></div>);
     }
@@ -425,7 +512,9 @@ export class HexEditor {
 
     // regions
 
-    const regionMarkers = [];
+    const binRegionMarkers = [];
+    const hexRegionMarkers = [];
+    const asciiRegionMarkers = [];
 
     const buildRegion = (region: IRegion, depth = 0, index?: number) => {
       if (region.end < start || region.start > start + this.maxLines * this.bytesPerLine) {
@@ -437,57 +526,61 @@ export class HexEditor {
 
       if (depth === this.regionDepth) return;
 
-      // else {
-        // start / end offsets
-        const s = region.start % this.bytesPerLine;
-        const e = region.end % this.bytesPerLine;
+      // start / end offsets
+      const s = region.start % this.bytesPerLine;
+      const e = region.end % this.bytesPerLine;
 
-        // l is the "height" of the region. It was a bit confusing, so allow me to explain:
-        // instead of only taking into account the start and end of the region's offsets,
-        // what we ACTUALLY want is the start and end while taking into account the offset
-        // provided by 's'
-        const l = Math.floor((region.end - region.start + s) / this.bytesPerLine);
+      // l is the "height" of the region. It was a bit confusing, so allow me to explain:
+      // instead of only taking into account the start and end of the region's offsets,
+      // what we ACTUALLY want is the start and end while taking into account the offset
+      // provided by 's'
+      const l = Math.floor((region.end - region.start + s) / this.bytesPerLine);
 
-        const offset = Math.floor(region.start / this.bytesPerLine) - lineNumber;
+      const offset = Math.floor(region.start / this.bytesPerLine) - lineNumber;
 
-        const getColor = {
-          0: ['#88F', '#BBF'],
-          1: ['#F88', '#FBB'],
-          2: ['#8D8', '#BDB']
-        }
+      const getColor = {
+        0: ['#88F', '#BBF'],
+        1: ['#F88', '#FBB'],
+        2: ['#8D8', '#BDB']
+      }
 
-        regionMarkers.push((
+      const genPolygon = (width: number, height: number) => (
           <polygon
-          onMouseMove={
-            (evt: MouseEvent) => {
-              if (this.canUpdateMouseMove === undefined) {
-                this.canUpdateMouseMove = true;
-              }
-              if (this.canUpdateMouseMove) {
-                this.canUpdateMouseMove = false;
-                document.documentElement.style.setProperty('--mouse-x', `${evt.clientX}`);
-                document.documentElement.style.setProperty('--mouse-y', `${evt.clientY}`);
-                document.getElementById('tooltip').setAttribute('active', 'true')
-                document.getElementById('tooltip').setAttribute('complex', `${JSON.stringify({...region, subRegions: region.subRegions ? region.subRegions.map(sr => sr.name) : null})}`);
+            onMouseMove={
+              (evt: MouseEvent) => {
+                if (this.canUpdateMouseMove === undefined) {
+                  this.canUpdateMouseMove = true;
+                }
+                if (this.canUpdateMouseMove) {
+                  this.canUpdateMouseMove = false;
+                  document.documentElement.style.setProperty('--mouse-x', `${evt.clientX}`);
+                  document.documentElement.style.setProperty('--mouse-y', `${evt.clientY}`);
+                  document.getElementById('tooltip').setAttribute('active', 'true')
+                  document.getElementById('tooltip').setAttribute('complex', `${JSON.stringify({...region, subRegions: region.subRegions ? region.subRegions.map(sr => sr.name) : null})}`);
 
-                setTimeout(() => {this.canUpdateMouseMove = true}, 50);
+                  setTimeout(() => {this.canUpdateMouseMove = true}, 50);
+                }
               }
             }
-          }
-          onMouseLeave={() => document.getElementById('tooltip').setAttribute('active', 'false')}
-          class="region"
-          points={`
-            0,${(1 + offset) * this.regionScaleHeight}
-            ${s * this.regionScaleWidth},${(1 + offset) * this.regionScaleHeight}
-            ${s * this.regionScaleWidth},${offset * this.regionScaleHeight}
-            ${this.bytesPerLine * this.regionScaleWidth},${offset * this.regionScaleHeight}
-            ${this.bytesPerLine * this.regionScaleWidth},${(l + offset) * this.regionScaleHeight}
-            ${e * this.regionScaleWidth},${(l + offset) * this.regionScaleHeight}
-            ${e * this.regionScaleWidth},${(l + offset + 1) * this.regionScaleHeight}
-            0,${(l+1 + offset) * this.regionScaleHeight}
-            `} fill={region.color || getColor[depth % 3][index % 2]} stroke="none"/>
-        ))
-        // if regions don't work right in the future then the if condition below is the reason why
+            onMouseLeave={() => document.getElementById('tooltip').setAttribute('active', 'false')}
+            class="region"
+            points={`
+              0,${(1 + offset) * height}
+              ${s * width},${(1 + offset) * height}
+              ${s * width},${offset * height}
+              ${this.bytesPerLine * width},${offset * height}
+              ${this.bytesPerLine * width},${(l + offset) * height}
+              ${e * width},${(l + offset) * height}
+              ${e * width},${(l + offset + 1) * height}
+              0,${(l+1 + offset) * height}
+            `} fill={region.color || getColor[depth % 3][index % 2]} stroke="none"
+          />
+        )
+
+      binRegionMarkers.push(genPolygon(14 * 8, this.regionScaleHeight));
+      hexRegionMarkers.push(genPolygon(this.regionScaleWidth, this.regionScaleHeight));
+      asciiRegionMarkers.push(genPolygon(10, this.regionScaleHeight));
+      // if regions don't work right in the future then the if condition below is the reason why
       if (region.subRegions && depth + 1 !== this.regionDepth) {
         for (const [i, r] of region.subRegions.entries()) buildRegion(r, depth + 1, i);
       }
@@ -498,12 +591,269 @@ export class HexEditor {
       buildRegion(region, 0, i);
     }
     // style={{width: this.bytesPerLine * this.regionScaleWidth, height: this.maxLines * this.regionScaleHeight}}
+
+    const binRegions = <svg viewBox={`0 0 ${this.bytesPerLine * 14 * 8} ${this.maxLines * this.regionScaleHeight}`} width={`${this.bytesPerLine * 14 * 8}`} height={`${this.maxLines * this.regionScaleHeight}`}>{binRegionMarkers}</svg>
+    const hexRegions = <svg viewBox={`0 0 ${this.bytesPerLine * this.regionScaleWidth} ${this.maxLines * this.regionScaleHeight}`} width={`${this.bytesPerLine * this.regionScaleWidth}`} height={`${this.maxLines * this.regionScaleHeight}`}>{hexRegionMarkers}</svg>
+    const asciiRegions = <svg viewBox={`0 0 ${this.bytesPerLine * 10} ${this.maxLines * this.regionScaleHeight}`} width={`${this.bytesPerLine * 10}`} height={`${this.maxLines * this.regionScaleHeight}`}>{asciiRegionMarkers}</svg>
     return {
       lineViews,
       charViews,
+      binViews,
       lineLabels,
-      regionMarkers: <svg viewBox={`0 0 ${this.bytesPerLine * this.regionScaleWidth} ${this.maxLines * this.regionScaleHeight}`} width={`${this.bytesPerLine * this.regionScaleWidth}`} height={`${this.maxLines * this.regionScaleHeight}`}>{regionMarkers}</svg>
+      binRegions,
+      hexRegions,
+      asciiRegions
     }
+  }
+
+  buildChunks() {
+    const { lineNumber, maxLines, bytesPerLine, bytesPerGroup, chunks, bitsPerGroup, asciiInline } = this;
+    // console.log(lineNumber);
+    const chunkOffset = {
+      chunk: 0,
+      chunkLineOffs: 0
+    };
+    // get offset data for the generated chunks
+    for (let lNum = lineNumber, j = 0; lNum > 0 && j < chunks.length; lNum--, j++) {
+      const acc = Math.floor((chunks[j].end - chunks[j].start) / bytesPerLine) + 1;
+      lNum -= acc;
+      if (lNum > 0) chunkOffset.chunk += 1;
+      else chunkOffset.chunkLineOffs = acc - lNum * -1;
+    }
+
+    // render the chunks, rendering
+    // only the parts that are visible
+    const renderedChunks: {
+      data: Uint8Array,
+      start: number,
+      startLine: number,
+      endLine: number,
+    }[] = [];
+    for (let i = chunkOffset.chunk, lineCount = 0; lineCount < maxLines && i < chunks.length; i++) {
+      const startLine = lineCount;
+      const chunk = chunks[i];
+      let actualStart = chunk.start;
+      if (i == chunkOffset.chunk) actualStart += bytesPerLine * chunkOffset.chunkLineOffs;
+      if (chunk.end - actualStart <= 0) {
+        // renderedChunks.push({data: new Uint8Array(0), start: -1, startLine: -1, endLine: -1});
+        continue;
+      }
+      lineCount += Math.ceil((chunk.end - actualStart) / bytesPerLine);
+
+      let actualEnd = chunk.end;
+      if (lineCount > maxLines) actualEnd -= (lineCount - maxLines) * bytesPerLine;
+      // console.log(actualEnd - actualStart);
+      const rendered = this.editController.render(actualStart, actualEnd - actualStart).out;
+
+      renderedChunks.push({start: actualStart, data: rendered, startLine, endLine: lineCount});
+      for (let j = 0; j < 1; j++) {
+        lineCount += 1;
+        renderedChunks.push({data: new Uint8Array(0), start: -1, startLine: -1, endLine: -1});
+      }
+
+
+    }
+    renderedChunks.pop();
+
+    let lineViews = [];
+    let charViews = [];
+    let binViews = [];
+    let lineLabels = [];
+
+    const binRegionMarkers = [];
+    const hexRegionMarkers = [];
+    const asciiRegionMarkers = [];
+
+    for (const {start, data, startLine} of renderedChunks) {
+      if (start === -1) {
+        lineLabels.push(<div class='separator' style={{pointerEvents: 'none'}}>NA</div>)
+        lineViews.push(<div class='separator' style={{pointerEvents: 'none'}}>NA</div>)
+        charViews.push(<div class='separator' style={{pointerEvents: 'none'}}>NA</div>)
+        binViews.push(<div class='separator' style={{pointerEvents: 'none'}}>NA</div>)
+        continue;
+      }
+      for (let i = 0; i < data.length; i += bytesPerLine) {
+        const lineStart = start + i;
+        const hexLine = [];
+        const charLine = [];
+        const binLine = [];
+        let selectedLine = -1;
+        for (let j = i; j < i + bytesPerLine && j < data.length; j++) {
+          const val = data[j];
+          const position = start + j;
+
+          let out: string;
+          let ascii: string;
+          if (/\w|[!@#$%^&*()_+=\]\\:;"'>.<,/?]/.test(String.fromCharCode(val))) {
+            ascii = String.fromCharCode(val);
+          } else { ascii = '•'; }
+
+          if (asciiInline && /\w/.test(ascii)) { out = "." + ascii; }
+          else { out = val.toString(16).toUpperCase().padStart(2, '0'); }
+
+          // classes
+          const classList = [];
+          if (out.startsWith('.')) classList.push('ASCII');
+          if ((j - i) % bytesPerGroup === bytesPerGroup - 1) classList.push('padByte');
+          if (Math.floor(this.cursor) === position) {
+            classList.push('cursor');
+            selectedLine = lineStart;
+          }
+          if (this.selection && this.selection.start <= position && position <= this.selection.end) classList.push('selected');
+
+          // binary spans are more complicated than the others
+          // they are split into 8 pieces (the 8 bits that make up a byte)
+          let binArr = val.toString(2).padStart(8, '0').split('');
+          let binSpans = [];
+          if (this.displayBin) {
+            for (let k = 0; k < binArr.length; k++) {
+              let binClass = '';
+              if ((position * 8 + k) % bitsPerGroup == bitsPerGroup - 1) binClass += 'padBit';
+              if (classList.includes('cursor') && (this.bit === k || this.bit === -1)) binClass += ' cursor';
+              if (classList.includes('selected')) {
+                if (this.selection.start === this.selection.end) {
+                  if (k >= this.selection.startBit && k <= this.selection.endBit)
+                    binClass += ' selected';
+                }
+                else if (this.selection.start == position) {
+                  if (k >= this.selection.startBit) binClass += ' selected';
+                }
+                else if (this.selection.end == position) {
+                  if (k <= this.selection.endBit || this.selection.endBit === -1) binClass += ' selected';
+                }
+                else binClass += ' selected';
+              }
+              binSpans.push(<span data-cursor-idx={k} class={binClass}>{binArr[k]}</span>);
+            }
+          }
+
+          if (this.displayBin) binLine.push(<span data-cursor-idx={position} class={"binGroup" + (classList.includes('added') ? ' added' : '')}>{binSpans}</span>)
+          if (this.displayAscii) charLine.push(<span data-cursor-idx={position} class={classList.join(' ')}>{ascii}</span>);
+          if (this.displayHex) hexLine.push(<span data-cursor-idx={position} class={classList.join(' ')}>{out}</span>);
+        }
+
+        lineLabels.push((
+          <div class={'lineLabel' + (selectedLine === lineStart ? ' selected' : '')} style={{pointerEvents: 'none'}}>{'0x' + (lineStart).toString(16).padStart(8, ' ')}</div>
+        ))
+
+        if (this.displayBin) binViews.push((
+          <div class={'binLine' + (selectedLine === lineStart ? ' selected' : '')}>{binLine}</div>
+        ))
+
+        if (this.displayHex) {
+          lineViews.push((
+            <div class={'hexLine' + (selectedLine === lineStart ? ' selected' : '')}>{hexLine}</div>
+          ));
+        } else {
+          lineViews.push({});
+        }
+
+        if (this.displayAscii) charViews.push((
+          <div class={'charLine' + (selectedLine === lineStart ? ' selected' : '')}>{charLine}</div>
+        ))
+
+      }
+
+      const buildRegion = (region: IRegion, depth = 0, index?: number) => {
+        const lineCount = Math.floor(data.length / bytesPerLine);
+        const horizOffset = start % bytesPerLine;
+
+        if (region.end < start || region.start > start + lineCount * bytesPerLine) {
+          if (region.subRegions && depth + 1 !== this.regionDepth) {
+            for (const [i, r] of region.subRegions.entries()) buildRegion(r, depth + 1, i);
+          }
+          return;
+        };
+
+        if (depth === this.regionDepth) return;
+
+        const startByte = Math.max(region.start, start);
+        const endByte = Math.min(region.end, start + data.length);
+
+        const s = (startByte - horizOffset) % bytesPerLine;
+        const e = (endByte - horizOffset) % bytesPerLine;
+
+        const l = Math.floor((endByte - startByte + s) / bytesPerLine);
+
+        const vertOffset = (Math.floor((startByte - start) / bytesPerLine) + startLine);
+        // console.log(startLine)
+        // console.log(idx, startByte.toString(16), vertOffset);
+
+        const getColor = {
+          0: ['#88F', '#BBF'],
+          1: ['#F88', '#FBB'],
+          2: ['#8D8', '#BDB']
+        };
+
+        const genPolygon = (width: number, height: number) => (
+          <polygon
+            onMouseMove={
+              (evt: MouseEvent) => {
+                if (this.canUpdateMouseMove === undefined) {
+                  this.canUpdateMouseMove = true;
+                }
+                if (this.canUpdateMouseMove) {
+                  this.canUpdateMouseMove = false;
+                  document.documentElement.style.setProperty('--mouse-x', `${evt.clientX}`);
+                  document.documentElement.style.setProperty('--mouse-y', `${evt.clientY}`);
+                  document.getElementById('tooltip').setAttribute('active', 'true')
+                  document.getElementById('tooltip').setAttribute('complex', `${JSON.stringify({...region, subRegions: region.subRegions ? region.subRegions.map(sr => sr.name) : null})}`);
+
+                  setTimeout(() => {this.canUpdateMouseMove = true}, 50);
+                }
+              }
+            }
+            onMouseLeave={() => document.getElementById('tooltip').setAttribute('active', 'false')}
+            class="region"
+            points={`
+              0,${(1 + vertOffset) * height}
+              ${s * width},${(1 + vertOffset) * height}
+              ${s * width},${vertOffset * height}
+              ${this.bytesPerLine * width},${vertOffset * height}
+              ${this.bytesPerLine * width},${(l + vertOffset) * height}
+              ${e * width},${(l + vertOffset) * height}
+              ${e * width},${(l + vertOffset + 1) * height}
+              0,${(l+1 + vertOffset) * height}
+            `} fill={region.color || getColor[depth % 3][index % 2]} stroke="none"
+          />
+        )
+
+        binRegionMarkers.push(genPolygon(14 * 8, this.regionScaleHeight));
+        hexRegionMarkers.push(genPolygon(this.regionScaleWidth, this.regionScaleHeight));
+        asciiRegionMarkers.push(genPolygon(10, this.regionScaleHeight));
+        // if regions don't work right in the future then the if condition below is the reason why
+        if (region.subRegions && depth + 1 !== this.regionDepth) {
+          for (const [i, r] of region.subRegions.entries()) buildRegion(r, depth + 1, i);
+        }
+
+      }
+
+      for (const [i, region] of this.regions.entries()) {
+        buildRegion(region, 0, i);
+      }
+    }
+
+    while (lineViews.length < maxLines) {
+      lineLabels.push(<div class="separator" ><span>-</span></div>)
+      binViews.push(<div class="separator" ><span>-</span></div>);
+      lineViews.push(<div class="separator" ><span>-</span></div>);
+      charViews.push(<div class="separator" ><span>-</span></div>);
+    }
+
+    const binRegions = <svg viewBox={`0 0 ${this.bytesPerLine * 14 * 8} ${this.maxLines * this.regionScaleHeight}`} width={`${this.bytesPerLine * 14 * 8}`} height={`${this.maxLines * this.regionScaleHeight}`}>{binRegionMarkers}</svg>
+    const hexRegions = <svg viewBox={`0 0 ${this.bytesPerLine * this.regionScaleWidth} ${this.maxLines * this.regionScaleHeight}`} width={`${this.bytesPerLine * this.regionScaleWidth}`} height={`${this.maxLines * this.regionScaleHeight}`}>{hexRegionMarkers}</svg>
+    const asciiRegions = <svg viewBox={`0 0 ${this.bytesPerLine * 10} ${this.maxLines * this.regionScaleHeight}`} width={`${this.bytesPerLine * 10}`} height={`${this.maxLines * this.regionScaleHeight}`}>{asciiRegionMarkers}</svg>
+
+    return {
+      lineViews,
+      charViews,
+      binViews,
+      lineLabels,
+      binRegions,
+      hexRegions,
+      asciiRegions
+    }
+
   }
 
   /**
@@ -516,8 +866,6 @@ export class HexEditor {
    */
   edit(evt: KeyboardEvent) {
     if ((evt.target as HTMLElement).className !== 'hex') return;
-    if (this.editType === 'readonly') return;
-    evt.preventDefault();
     const evtArrowKeyConditions = {
       ArrowDown: () => {
         this.setCursorPosition(
@@ -535,6 +883,7 @@ export class HexEditor {
       ArrowLeft: () => { this.setCursorPosition((this.cursor - 1 < 0) ? 0 : this.cursor - 1) }
     }
     if (evtArrowKeyConditions[evt.key]) {
+      evt.preventDefault();
       // commits/ends any edits
       if (this.editController.inProgress) this.editController.commit();
       // executes key function
@@ -553,9 +902,12 @@ export class HexEditor {
       }
     } else if ((evt.ctrlKey || evt.metaKey) && evt.key === 'f') {
       // toggles find window
+      evt.preventDefault();
       this.searchActive = !this.searchActive;
       forceUpdate(this);
     } else {
+      if (this.editType === 'readonly') return;
+      evt.preventDefault();
       this.editController.buildEdit(evt);
     }
   }
@@ -589,7 +941,6 @@ export class HexEditor {
         if (searchEndian === 'little') out.reverse();
         return out;
       case 'float':
-        console.log(parseFloat(text))
         return floatToBin(parseFloat(text), searchByteCount, searchEndian)
       case 'byte':
         if (/[^0-9a-f ,|;]/ig.test(text)) throw new Error('UC: Unexpected Character (must be exclusively 0-9 and a-f)')
@@ -625,7 +976,7 @@ export class HexEditor {
    * displays the full hexidecimal view
    */
   showHex() {
-    const { lineViews, charViews, lineLabels, regionMarkers } = this.buildHexView();
+    const { lineViews, binViews, charViews, lineLabels, binRegions, hexRegions, asciiRegions } = this.buildHexView();
 
     let searchHexDisplay;
     try {
@@ -642,7 +993,12 @@ export class HexEditor {
       const jumpToResult = (val: string) => {
         let v = parseInt(val);
         this.setCursorPosition(v);
-        this.setSelection({start: v, end: v + ((['integer', 'float'].includes(this.searchType)) ? this.searchByteCount : this.searchInput.length) - 1 })
+        this.setSelection({
+          start: v,
+          end: v + ((['integer', 'float'].includes(this.searchType)) ? this.searchByteCount : this.searchInput.length) - 1,
+          startBit: -1,
+          endBit: -1
+        })
         this.setLineNumber(Math.floor(v / this.bytesPerLine) - this.maxLines / 2)
       }
       searchResults = (
@@ -668,17 +1024,34 @@ export class HexEditor {
         <div class="lineLabels">
           {lineLabels}
         </div>
-        <div class="hexView">
-          <div class="highlight" style={{position: 'absolute', top: '0', display: this.mode === 'noregion' ? 'none' : 'block', zIndex: this.mode === 'region' ? '3' : '0'}}>
-            {regionMarkers}
+        {this.displayBin ?
+          <div class="binView">
+            <div class="highlight" style={{position: 'absolute', top: '0', display: this.mode === 'noregion' ? 'none' : 'block', zIndex: this.mode === 'region' ? '3' : '0'}}>
+              {binRegions}
+            </div>
+            <div class="main">
+              {binViews}
+            </div>
           </div>
-          <div class="main">
-            {lineViews}
+        : null}
+        {this.displayHex ?
+          <div class="hexView">
+            <div class="highlight" style={{position: 'absolute', top: '0', display: this.mode === 'noregion' ? 'none' : 'block', zIndex: this.mode === 'region' ? '3' : '0'}}>
+              {hexRegions}
+            </div>
+            <div class="main">
+              {lineViews}
+            </div>
           </div>
-        </div>
+        : null}
         {this.displayAscii ?
           <div class="asciiView">
-            {charViews}
+            <div class="highlight" style={{position: 'absolute', top: '0', display: this.mode === 'noregion' ? 'none' : 'block', zIndex: this.mode === 'region' ? '3' : '0'}}>
+              {asciiRegions}
+            </div>
+            <div class="main">
+              {charViews}
+            </div>
           </div>
           : null}
         {this.searchActive ?
@@ -714,45 +1087,141 @@ export class HexEditor {
   }
 
   /**
+   * displays the chunks
+   *
+   * @memberof HexEditor
+   */
+  showChunks() {
+    const {
+      lineViews,
+      binViews,
+      charViews,
+      lineLabels,
+      binRegions,
+      hexRegions,
+      asciiRegions
+    } = this.buildChunks();
+
+
+    return (
+      <div class="hex"
+        onMouseEnter={(evt) => this._toggleScrollListener(evt)}
+        onMouseLeave={(evt) => this._toggleScrollListener(evt)}
+        onMouseDown={(evt) => this.beginSelection(evt)}
+        onMouseUp={(evt) => this.endSelection(evt)}
+
+        tabindex="0"
+        onKeyDown={(evt) => this.edit(evt)}
+      >
+        <div id="MEASURE" class="hex" style={{position: 'absolute', visibility: 'hidden', padding: '0 5px'}}>AB</div>
+        <div class="lineLabels">
+          {lineLabels}
+        </div>
+        {this.displayBin ?
+          <div class="binView">
+            <div class="highlight" style={{position: 'absolute', top: '0', display: this.mode === 'noregion' ? 'none' : 'block', zIndex: this.mode === 'region' ? '3' : '0'}}>
+              {binRegions}
+            </div>
+            <div class="main">
+              {binViews}
+            </div>
+          </div>
+        : null}
+        {this.displayHex ?
+          <div class="hexView">
+            <div class="highlight" style={{position: 'absolute', top: '0', display: this.mode === 'noregion' ? 'none' : 'block', zIndex: this.mode === 'region' ? '3' : '0'}}>
+              {hexRegions}
+            </div>
+            <div class="main">
+              {lineViews}
+            </div>
+          </div>
+        : null}
+        {this.displayAscii ?
+          <div class="asciiView">
+            <div class="highlight" style={{position: 'absolute', top: '0', display: this.mode === 'noregion' ? 'none' : 'block', zIndex: this.mode === 'region' ? '3' : '0'}}>
+              {asciiRegions}
+            </div>
+            <div class="main">
+              {charViews}
+            </div>
+          </div>
+          : null}
+      </div>
+    );
+  }
+
+  /**
    * gets the exact position of
    * @param evt the mousedown event
    */
   beginSelection(evt: any) {
     if ((evt.target as HTMLElement).id === 'HEX-SCROLLBAR') return;
-    this.tempSelection =
-      this.lineNumber * this.bytesPerLine +
-      [...evt.composedPath()[2].children].indexOf(evt.composedPath()[1]) * this.bytesPerLine +
-      [...evt.composedPath()[1].children].indexOf(evt.composedPath()[0]);
+    const parentClassName = (evt.target as HTMLElement).parentElement.className;
+    if (parentClassName.includes('charLine')) this.editingMode = 'ascii';
+    else if (parentClassName.includes('hexLine')) this.editingMode = 'byte';
+    else if (parentClassName.includes('binGroup')) this.editingMode = 'bit';
+    else return;
+
+    if (this.editingMode === 'bit') {
+      this.tempSelection = {
+        byte: parseInt(evt.composedPath()[1].getAttribute('data-cursor-idx')),
+        bit: parseInt(evt.target.getAttribute('data-cursor-idx'))
+      }
+    }
+    else {
+      this.tempSelection = {
+        byte: parseInt(evt.target.getAttribute('data-cursor-idx')),
+        bit: -1
+      }
+    }
+
   }
 
   endSelection(evt: any) {
+    if (this.tempSelection === null) return;
+
     const parentClassName = (evt.target as HTMLElement).parentElement.className;
-    if (!(parentClassName.includes('charLine') || parentClassName.includes('hexLine'))) {
-      return;
+    if (parentClassName.includes('charLine')) this.editingMode = 'ascii';
+    else if (parentClassName.includes('hexLine')) this.editingMode = 'byte';
+    else if (parentClassName.includes('binGroup')) this.editingMode = 'bit';
+    else return;
+
+    let chosen;
+    if (this.editingMode === 'bit') {
+      chosen = {
+        byte: parseInt(evt.composedPath()[1].getAttribute('data-cursor-idx')),
+        bit: parseInt(evt.target.getAttribute('data-cursor-idx'))
+      }
     }
-    this.asciiMode = parentClassName.includes('charLine');
-
-    const chosen =
-      this.lineNumber * this.bytesPerLine +
-      [...evt.composedPath()[2].children].indexOf(evt.composedPath()[1]) * this.bytesPerLine +
-      [...evt.composedPath()[1].children].indexOf(evt.composedPath()[0]);
-
-    if (this.tempSelection > chosen) {
-      this.selection = {
-        start: chosen,
-        end: this.tempSelection,
+    else {
+      chosen = {
+        byte: parseInt(evt.target.getAttribute('data-cursor-idx')),
+        bit: -1
       }
+    }
+
+    if (this.tempSelection.byte + this.tempSelection.bit / 10 > chosen.byte + chosen.bit / 10) {
+      this.setSelection({
+        start: chosen.byte,
+        startBit: chosen.bit,
+        end: this.tempSelection.byte,
+        endBit: this.tempSelection.bit
+      })
     } else {
-      this.selection = {
-        start: this.tempSelection,
-        end: chosen,
-      }
+      this.setSelection({
+        start: this.tempSelection.byte,
+        startBit: this.tempSelection.bit,
+        end: chosen.byte,
+        endBit: chosen.bit
+      })
     }
 
     this.tempSelection = null;
-    this.cursor = chosen;
+    this.cursor = chosen.byte;
+    this.bit = chosen.bit;
 
-    this.hexCursorChanged.emit(this.cursor);
+    this.hexCursorChanged.emit({byte: this.cursor, bit: this.bit});
     this.hexSelectionChanged.emit(this.selection);
 
     if (this.editController.isInProgress) {
@@ -781,9 +1250,13 @@ export class HexEditor {
   }
 
   render() {
+    let out;
+    if (this.displayAsChunks) out = this.showChunks()
+    else  out = this.showHex()
+
     return (
       <div class="fudgedit-container">
-        {this.showHex()}
+        {out}
       </div>
     )
   }

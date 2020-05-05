@@ -20,30 +20,57 @@ export namespace Components {
          */
         "asciiInline": boolean;
         /**
+          * the number of bits between separators on the bit display
+          * @type {number}
+          * @memberof HexEditor
+         */
+        "bitsPerGroup": number;
+        /**
+          * the number of chunks between separators
+          * @type {number}
+          * @memberof HexEditor
+         */
+        "bytesPerGroup": number;
+        /**
           * the number of bytes to display per line
           * @type {number}
           * @memberof HexEditor
          */
         "bytesPerLine": number;
         /**
-          * currently does nothing it WOULD force a line break every X bytes
-          * @type {number}
+          * definitions for each chunk to display when displayAsChunks is enabled
+          * @type {number[]}
           * @memberof HexEditor
-          * @deprecated
          */
-        "bytesUntilForcedLine": number;
+        "chunks": {
+            title?: string;
+            start: number;
+            end: number;
+        }[];
         /**
-          * the number of chunks between separators
-          * @type {number}
+          * displays the file as chunks (defined above)
+          * @type {boolean}
           * @memberof HexEditor
          */
-        "chunksPerGroup": number;
+        "displayAsChunks": boolean;
         /**
           * weather or not to display ASCII on the side
           * @type {boolean}
           * @memberof HexEditor
          */
         "displayAscii": boolean;
+        /**
+          * weather or not to display binary
+          * @type {boolean}
+          * @memberof HexEditor
+         */
+        "displayBin": boolean;
+        /**
+          * weather or not to display Hex
+          * @type {boolean}
+          * @memberof HexEditor
+         */
+        "displayHex": boolean;
         /**
           * the mode of data entry: insert:     inserts data between bytes overwrite:     overwrites the currently selected byte readonly:     no edits are possible
           * @type {("insert" | "overwrite" | "readonly")}
@@ -88,7 +115,7 @@ export namespace Components {
           * @type {("region" | "edit" | "noregion")}
           * @memberof HexEditor
          */
-        "mode": "region" | "edit" | "noregion";
+        "mode": "region" | "select" | "noregion";
         /**
           * the number of regions to traverse
           * @type {number}
@@ -112,7 +139,7 @@ export namespace Components {
           * @param newCursorPosition
           * @memberof HexEditor
          */
-        "setCursorPosition": (newCursorPosition: number) => Promise<void>;
+        "setCursorPosition": (newCursorPosition: number, bit?: number) => Promise<void>;
         /**
           * sets the line number
           * @param newLineNumber
@@ -127,6 +154,8 @@ export namespace Components {
         "setSelection": (newSelection: {
             start?: number;
             end?: number;
+            startBit?: number;
+            endBit?: number;
         }) => Promise<void>;
     }
     interface FudgeHexTooltip {
@@ -164,30 +193,57 @@ declare namespace LocalJSX {
          */
         "asciiInline"?: boolean;
         /**
+          * the number of bits between separators on the bit display
+          * @type {number}
+          * @memberof HexEditor
+         */
+        "bitsPerGroup"?: number;
+        /**
+          * the number of chunks between separators
+          * @type {number}
+          * @memberof HexEditor
+         */
+        "bytesPerGroup"?: number;
+        /**
           * the number of bytes to display per line
           * @type {number}
           * @memberof HexEditor
          */
         "bytesPerLine"?: number;
         /**
-          * currently does nothing it WOULD force a line break every X bytes
-          * @type {number}
+          * definitions for each chunk to display when displayAsChunks is enabled
+          * @type {number[]}
           * @memberof HexEditor
-          * @deprecated
          */
-        "bytesUntilForcedLine"?: number;
+        "chunks"?: {
+            title?: string;
+            start: number;
+            end: number;
+        }[];
         /**
-          * the number of chunks between separators
-          * @type {number}
+          * displays the file as chunks (defined above)
+          * @type {boolean}
           * @memberof HexEditor
          */
-        "chunksPerGroup"?: number;
+        "displayAsChunks"?: boolean;
         /**
           * weather or not to display ASCII on the side
           * @type {boolean}
           * @memberof HexEditor
          */
         "displayAscii"?: boolean;
+        /**
+          * weather or not to display binary
+          * @type {boolean}
+          * @memberof HexEditor
+         */
+        "displayBin"?: boolean;
+        /**
+          * weather or not to display Hex
+          * @type {boolean}
+          * @memberof HexEditor
+         */
+        "displayHex"?: boolean;
         /**
           * the mode of data entry: insert:     inserts data between bytes overwrite:     overwrites the currently selected byte readonly:     no edits are possible
           * @type {("insert" | "overwrite" | "readonly")}
@@ -205,7 +261,7 @@ declare namespace LocalJSX {
           * @type {("region" | "edit" | "noregion")}
           * @memberof HexEditor
          */
-        "mode"?: "region" | "edit" | "noregion";
+        "mode"?: "region" | "select" | "noregion";
         /**
           * Emitted on the change of the cursor's position
           * @type {EventEmitter}

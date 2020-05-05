@@ -12,6 +12,7 @@
   outline: none;
 }
 
+.binView,
 .hexView,
 .asciiView,
 .lineLabels {
@@ -21,6 +22,7 @@
   position: relative;
 }
 
+.binLine span,
 .hexLine span,
 .charLine span {
   position: relative;
@@ -30,6 +32,37 @@
 
 .lineLabel {
   height: 17px;
+}
+
+.binLine > span > span {
+  position: relative;
+  width: 14px;
+  padding: 0 3px;
+  box-sizing: border-box;
+}
+.binLine span {
+  padding: 0 0px;
+}
+.binLine > span > span.padBit::after {
+  /* padding-right: 15px; */
+  background-color: #0006;
+  position: absolute;
+  width: 1px;
+  height: 100%;
+  left: calc(100% + 0.5px);
+  content: '';
+}
+.binLine > span > span:last-child.padBit::after {
+  /* padding-right: 15px; */
+  width: 2px;
+  left: 100%
+}
+.binLine > span:last-child > span:last-child.padBit::after {
+  display: none
+}
+
+.charLine span {
+  width: 10px;
 }
 
 .hexLine span {
@@ -48,27 +81,33 @@
   content: '';
 }
 
+.binLine span,
 .hexLine span {
   cursor: default;
   user-select: none;
 }
 
+.binLine span.selected,
 .charLine span.selected,
 .hexLine span.selected {
   background-color: #8888FF80;
 }
 
+.binLine span.cursor,
 .charLine span.cursor,
 .hexLine span.cursor {
   background-color: #008;
   color: #FFF;
 }
 
+.binLine > span.added,
 .charLine span.added,
 .hexLine span.added {
   color: red;
 }
 
+.binLine > span > span:hover,
+.charLine span:hover,
 .hexLine span:hover {
   background-color: #000;
   color: #FFF;
@@ -78,16 +117,23 @@
   font-weight: bold;
 }
 
+.binLine:nth-child(2n-1),
 .hexLine:nth-child(2n-1),
 .charLine:nth-child(2n-1),
 .lineLabel:nth-child(2n-1) {
   background-color: #EEFFFF;
 }
 
+.binLine.selected,
 .charLine.selected,
 .hexLine.selected,
 .lineLabel.selected {
   background-color: #FFA;
+}
+
+.separator {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .region { opacity: 1; }

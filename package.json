@@ -1,11 +1,11 @@
 {
   "name": "fudgedit",
-  "version": "0.2.2",
+  "version": "1.0.0",
   "description": "A Hex Editor that allows for region highlighting, multiple modes, and more",
   "repository": {
     "url": "https://github.com/fudgepop01/fudgedit"
   },
-  "module": "./dist/index.js",
+  "module": "./dist/index.mjs",
   "main": "dist/index.js",
   "unpkg": "dist/fudgedit.js",
   "types": "dist/types/components.d.ts",

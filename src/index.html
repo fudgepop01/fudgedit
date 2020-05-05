@@ -110,13 +110,22 @@
       <input type="number" name="maxlines" id="maxlines" value="30" onchange="document.getElementById('editor').setAttribute('max-lines', event.target.value)">
 
       <label for="bytesPerLine">bytes per line:</label>
-      <input type="number" name="bytesPerLine" id="bytesPerLine" value="16" onchange="document.getElementById('editor').setAttribute('bytes-per-line', event.target.value)">
+      <input type="number" name="bytesPerLine" id="bytesPerLine" value="4" onchange="document.getElementById('editor').setAttribute('bytes-per-line', event.target.value)">
 
-      <label for="bytesPerGroup">chunks per group:</label>
-      <input type="number" name="chunksPerGroup" id="chunksPerGroup" value="4" onchange="document.getElementById('editor').setAttribute('chunks-per-group', event.target.value)">
+      <label for="bytesPerGroup">bytes per group:</label>
+      <input type="number" name="bytesPerGroup" id="bytesPerGroup" value="4" onchange="document.getElementById('editor').setAttribute('bytes-per-group', event.target.value)">
+
+      <label for="bitsPerGroup">bits per group:</label>
+      <input type="number" name="bitsPerGroup" id="bitsPerGroup" value="4" onchange="document.getElementById('editor').setAttribute('bits-per-group', event.target.value)">
 
       <label for="asciiInline">ascii inline?:</label>
       <input type="number" name="asciiInline" id="asciiInline" value="0" min="0" max="1" onchange="document.getElementById('editor').setAttribute('ascii-inline', event.target.value === '1')">
+
+      <label for="displayBin">display binary?:</label>
+      <input type="number" name="displayBin" id="displayBin" value="1" min="0" max="1" onchange="document.getElementById('editor').setAttribute('display-bin', event.target.value === '1')">
+
+      <label for="displayHex">display hex?:</label>
+      <input type="number" name="displayHex" id="displayHex" value="1" min="0" max="1" onchange="document.getElementById('editor').setAttribute('display-hex', event.target.value === '1')">
 
       <label for="displayAscii">display ascii?:</label>
       <input type="number" name="displayAscii" id="displayAscii" value="1" min="0" max="1" onchange="document.getElementById('editor').setAttribute('display-ascii', event.target.value === '1')">
@@ -128,7 +137,7 @@
       <label for="mode">mode:</label>
       <select id="mode" onchange="document.getElementById('editor').setAttribute('mode', event.target.value)" >
         <option value="region" selected>region</option>
-        <option value="edit">edit</option>
+        <option value="select">select</option>
         <option value="noregion">no region</option>
       </select>
 
@@ -141,13 +150,19 @@
 
       <input type="file" name="uploadFile" id="uploadFile" onchange="document.getElementById('editor').acceptFile(this.files[0])">
       <button onclick="document.getElementById('uploadFile').click()">upload</button>
-      <button onclick="console.log(document.getElementById('editor').saveFile())">save</button>
+      <!-- <button onclick="console.log(document.getElementById('editor').saveFile())">save</button> -->
     </div>
   </div>
 
   <div id="showcase">
     <fudge-hex-tooltip id="tooltip"></fudge-hex-tooltip>
-    <fudge-hex-editor id="editor" mode="region"></fudge-hex-editor>
+    <fudge-hex-editor
+      id="editor"
+      mode="region"
+      bytes-per-line="4"
+      edit-type="overwrite"
+      display-bin="true"
+    ></fudge-hex-editor>
   </div>
 
   <div id="regionEditor">
@@ -162,36 +177,73 @@
     };
     let editor = new JSONEditor(container, options);
 
-    let json = [{
-      start: 0x0,
-      end: 0x10,
-      name: 'outer layer w/ children',
-      subRegions: [{
+    let json = [
+      {
         start: 0x0,
-        end: 0x5,
-        name: '2nd-level child 1',
+        end: 0x10,
+        name: 'outer layer w/ children',
         subRegions: [{
-          start: 0x1,
-          end: 0x4,
-          name: '3rd-level child',
+          start: 0x0,
+          end: 0x5,
+          name: '2nd-level child 1',
           subRegions: [{
-            start: 0x2,
-            end: 0x3,
-            name: '4th-level child'
+            start: 0x1,
+            end: 0x4,
+            name: '3rd-level child',
+            subRegions: [{
+              start: 0x2,
+              end: 0x3,
+              name: '4th-level child'
+            }]
           }]
+        }, {
+          start: 0x8,
+          end: 0x10,
+          name: '2nd-level child 2'
         }]
       }, {
-        start: 0x8,
-        end: 0x10,
-        name: '2nd-level child 2'
-      }]
-    }, {
-      start: 0x10,
-      end: 0x14,
-      name: '2nd outer layer'
-    }];
+        start: 0x10,
+        end: 0x14,
+        name: '2nd outer layer'
+      },
+      {
+        start: 26,
+        end: 60,
+        subRegions: [
+          {
+            start: 28,
+            end: 50
+          }
+        ]
+      },
+      {
+        start: 65,
+        end: 140
+      }
+    ];
     editor.set(json);
     document.getElementById("editor").regions = json;
+
+    let chunks = [
+      {
+        start: 0,
+        end: 30
+      },
+      {
+        start: 42,
+        end: 69
+      },
+      {
+        start: 100,
+        end: 200
+      },
+      {
+        start: 256,
+        end: 300
+      }
+    ]
+    document.getElementById("editor").chunks = chunks;
+    document.getElementById("editor").displayAsChunks = false;
 
   </script>
 </body>

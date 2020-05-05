@@ -233,7 +233,7 @@ export class EditController {
   }
 
   find(searchArr: number[], from: number, maxLength?: number) {
-    // Boyer-Moore string search algorighm:
+    // Boyer-Moore string search algorithm:
     // https://en.wikipedia.org/wiki/Boyer%E2%80%93Moore_string-search_algorithm
 
     const results = [];
@@ -262,7 +262,7 @@ export class EditController {
       }
       // JUUUST to be sure there's no infinite loop
       inf++
-      if (inf > 10000) break;
+      if (inf > 100000) break;
     }
 
 
@@ -369,47 +369,82 @@ export class EditController {
 
   }
 
+  // pressing backspace will be handled differently depending on:
+  // whether something is in-progress, and whether the editingMode of the
+  // parent is 'byte'/'ascii' or 'bit'
   backSpace() {
-    if (!this.inProgress || this.inProgress.content.length === 0) return;
-    this.chunk = '';
-    this.inProgress.content.pop();
-    this.parent.setCursorPosition(this.parent.cursor - 1);
-    this.modifyNextPiece(1, this.inProgress.index)
+    if (this.inProgress) {
+      this.chunk = '';
+      this.inProgress.content.pop();
+      this.parent.setCursorPosition(this.parent.cursor - 1);
+      this.modifyNextPiece(1, this.inProgress.index)
+    }
+    else if (this.parent.editingMode === 'bit') {
+
+    }
+    else {
+
+    }
   }
 
+  /**
+   * builds the edit
+   *
+   * @param {KeyboardEvent} keyStroke
+   * @memberof EditController
+   */
   buildEdit(keyStroke: KeyboardEvent) {
     if (!this.parent.cursor || this.parent.cursor === -1) return;
     if (keyStroke.key === 'Z' && (keyStroke.metaKey || keyStroke.ctrlKey)) {
       this.redo()
       return;
     }
-     if (keyStroke.key === 'z' && (keyStroke.metaKey || keyStroke.ctrlKey)) {
+    if (keyStroke.key === 'z' && (keyStroke.metaKey || keyStroke.ctrlKey)) {
       this.undo()
       return;
     }
-    else if (keyStroke.key === 'Backspace') {
-      this.backSpace()
+    if (keyStroke.key === 'Backspace') {
+      this.backSpace();
       return;
     }
-    else if (this.parent.asciiMode && keyStroke.key.length === 1 && /[\u0000-\u00FF]/.test(keyStroke.key)) {
-      if (!this.isInProgress)
-        this.initEdit(this.parent.cursor, this.parent.editType as editType)
-      this.inProgress.content.push(keyStroke.key.charCodeAt(0));
-    }
-    else if (/^[a-fA-F0-9]$/.test(keyStroke.key)) {
-      if (!this.isInProgress)
-        this.initEdit(this.parent.cursor, this.parent.editType as editType)
-      this.chunk += keyStroke.key;
-      if (this.chunk.length === 2) {
-        this.inProgress.content.push(parseInt(this.chunk, 16));
-        this.chunk = '';
-      } else {
-        return;
-      }
-    } else return;
-    this.parent.setCursorPosition(this.parent.cursor + 1);
 
-    if (this.inProgress.type === 'overwrite') this.modifyNextPiece(-1, this.inProgress.index);
+    // ascii and byte modes are effectively the same in terms of editing
+    // binary editing is very different, so it is handled in the else statement
+    if (['ascii', 'byte'].includes(this.parent.editingMode)) {
+      if (!this.isInProgress)
+          this.initEdit(this.parent.cursor, this.parent.editType as editType);
+
+      if (this.parent.editingMode === 'ascii' && keyStroke.key.length === 1 && /[\u0000-\u00FF]/.test(keyStroke.key)) {
+        this.inProgress.content.push(keyStroke.key.charCodeAt(0));
+        this.parent.setCursorPosition(this.parent.cursor + 1);
+        if (this.inProgress.type === 'overwrite') this.modifyNextPiece(-1, this.inProgress.index);
+      }
+      else if (this.parent.editingMode === 'byte' && /^[a-fA-F0-9]$/.test(keyStroke.key)) {
+        this.chunk += keyStroke.key;
+        if (this.chunk.length === 2) {
+          this.inProgress.content.push(parseInt(this.chunk, 16));
+          this.chunk = '';
+          this.parent.setCursorPosition(this.parent.cursor + 1);
+          if (this.inProgress.type === 'overwrite') this.modifyNextPiece(-1, this.inProgress.index);
+        }
+      }
+    }
+    // valid binary editing commands are 0, 1, and Enter
+    else if (this.parent.editingMode === 'bit' && ['0', '1', 'Enter'].includes(keyStroke.key)) {
+      if (keyStroke.key === 'Enter') {
+        // enter inserts a blank byte
+        this.initEdit(this.parent.cursor, 'insert');
+        this.inProgress.content.push(0);;
+        this.commit();
+        forceUpdate(this.parent);
+      }
+      else {
+        if (!this.isInProgress)
+          this.initEdit(this.parent.cursor, 'overwrite');
+
+        this.parent.setCursorPosition(this.parent.cursor, this.parent.bit + 1);
+      }
+    }
   }
 
   commit() {

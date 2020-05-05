@@ -28,9 +28,11 @@ export function floatToBin(value: number, size: 1 | 2 | 4 | 8, endianness: 'big'
 
   let rounding = decMantissa.substring(decMantissa.length - 2);
   decMantissa = decMantissa.substring(0, decMantissa.length - 2);
+
+  console.log(decMantissa, rounding);
   if (rounding.charAt(0) === '1') {
     decMantissa = (parseInt(decMantissa, 2) + 1).toString(2);
-    if (/10+$/.test(decMantissa)) {
+    if (/^10+$/.test(decMantissa)) {
       fullNum += 1;
       decMantissa = '';
     }
@@ -46,12 +48,14 @@ export function floatToBin(value: number, size: 1 | 2 | 4 | 8, endianness: 'big'
   expBin +
   (fullNum.toString(2) + decMantissa).padEnd(((size * 8) - 1 - exponentBitCount) - fullNum.toString(2).length, '0').substring(1);
 
+  console.log(sign, expBin, (fullNum.toString(2) + decMantissa).padEnd(((size * 8) - 1 - exponentBitCount) - fullNum.toString(2).length, '0').substring(1));
   let out = [];
   for (let i = 0; i < (size * 8); i += 8) {
     out.push(parseInt(fullBin.substring(i, i+8), 2));
   }
 
   if (endianness === 'little') out.reverse();
+  if (value === 0) out.fill(0);
 
   return out;
 }
