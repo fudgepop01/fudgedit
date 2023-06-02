@@ -1,0 +1,1 @@
+export type ActiveMode = "true" | "false" | "frozen"

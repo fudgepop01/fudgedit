@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html dir="ltr" lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0">
+  <title>fudgepop01 github homepage</title>
+  <script type="module" src="./build/fudgeapps.esm.js"></script>
+  <script nomodule src="./build/fudgeapps.js"></script>
+
+  <link href="https://fonts.googleapis.com/css?family=Open+Sans&display=swap" rel="stylesheet">
+  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.5/ace.js"></script> -->
+  <script src="https://unpkg.com/jsoneditor@6.0.0/dist/jsoneditor.min.js"></script>
+  <link href="https://unpkg.com/jsoneditor@6.0.0/dist/jsoneditor.min.css" rel="stylesheet"></link>
+  <style>
+    /* afaik this does need to be hardcoded here lol */
+    * {
+      box-sizing: border-box;
+    }
+    
+    body {
+      height: 100vh;
+      width: 100vw;
+
+      position: relative;
+      display: grid;
+      grid-auto-rows: 100%;
+      grid-template-columns: 350px auto;
+      overflow: auto;
+    }
+
+    #parameters {
+      position: relative;
+      height: 100%;
+      padding: 10px;
+      font-family: 'open sans', sans-serif;
+
+      box-shadow: 2px 0 2px black;
+    }
+
+    #parameters .controls {
+      display: grid;
+      grid-auto-rows: 40px;
+      grid-template-columns: 50% 50%;
+      align-items: center;
+      padding: 0px 20px;
+    }
+
+    #parameters .controls > *:not(button):nth-child(2n+1) {
+      justify-self: right;
+      padding-right: 15px;
+    }
+
+    #parameters .controls > input {
+      height: 20px;
+      border-radius: 5px;
+      border: 1px solid black;
+    }
+
+    #parameters .controls > input[type='file'] {
+      display: none;
+    }
+
+    #parameters .controls > button {
+      grid-column-start: span 2;
+      justify-self: right;
+      height: 20px;
+      width: 50%;
+      border-radius: 5px;
+      border: 1px solid black;
+    }
+
+    #regionEditor {
+      position: absolute;
+      right: 0;
+      height: 100%;
+      width: 400px;
+    }
+
+    #showcase {
+      height: 100%;
+
+      display: flex;
+      justify-content: left;
+      align-items: center;
+
+      overflow: scroll;
+    }
+
+    #credit {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+
+      width: 330px;
+      height: 100px;
+      color: white;
+      background-color: black;
+      padding: 10px;
+    }
+
+    a {
+      color: white;
+    }
+  </style>
+
+</head>
+<body style="margin: 0">
+  <div id="parameters">
+    <h3>Parameters:</h3>
+    <div id="credit"> Created by Dominick Reba <br/> <a href="https://twitter.com/fudgepop01">@fudgepop01</a> </div>
+    <div class="controls">
+      <label for="maxlines">max lines:</label>
+      <input type="number" name="maxlines" id="maxlines" value="30" onchange="document.getElementById('editor').setAttribute('max-lines', event.target.value)">
+
+      <label for="bytesPerLine">bytes per line:</label>
+      <input type="number" name="bytesPerLine" id="bytesPerLine" value="4" onchange="document.getElementById('editor').setAttribute('bytes-per-line', event.target.value)">
+
+      <label for="bytesPerGroup">bytes per group:</label>
+      <input type="number" name="bytesPerGroup" id="bytesPerGroup" value="4" onchange="document.getElementById('editor').setAttribute('bytes-per-group', event.target.value)">
+
+      <label for="bitsPerGroup">bits per group:</label>
+      <input type="number" name="bitsPerGroup" id="bitsPerGroup" value="4" onchange="document.getElementById('editor').setAttribute('bits-per-group', event.target.value)">
+
+      <label for="asciiInline">ascii inline?:</label>
+      <input type="number" name="asciiInline" id="asciiInline" value="0" min="0" max="1" onchange="document.getElementById('editor').setAttribute('ascii-inline', event.target.value === '1')">
+
+      <label for="displayBin">display binary?:</label>
+      <input type="number" name="displayBin" id="displayBin" value="1" min="0" max="1" onchange="document.getElementById('editor').setAttribute('display-bin', event.target.value === '1')">
+
+      <label for="displayHex">display hex?:</label>
+      <input type="number" name="displayHex" id="displayHex" value="1" min="0" max="1" onchange="document.getElementById('editor').setAttribute('display-hex', event.target.value === '1')">
+
+      <label for="displayAscii">display ascii?:</label>
+      <input type="number" name="displayAscii" id="displayAscii" value="1" min="0" max="1" onchange="document.getElementById('editor').setAttribute('display-ascii', event.target.value === '1')">
+
+      <label for="nonLetterASCII">non-display ASCII?:</label>
+      <input type="text" name="nonLetterASCII" id="nonLetterASCII" value="\u2022" onchange="document.getElementById('editor').setAttribute('non-display-character', event.target.value)">
+
+      <label for="nonLetterOpacity">non-letter opacity?:</label>
+      <input type="number" name="nonLetterOpacity" id="nonLetterOpacity" value="0.45" min="0" max="1" step="0.05" onchange="document.getElementById('editor').setAttribute('non-display-opacity', event.target.value)">
+
+      <label for="regionDepth">region depth:</label>
+      <input type="number" name="regionDepth" id="regionDepth" value="2" onchange="document.getElementById('editor').setAttribute('region-depth', event.target.value)">
+
+      <label for="mode">mode:</label>
+      <select id="mode" onchange="document.getElementById('editor').setAttribute('mode', event.target.value)" >
+        <option value="region" selected>region</option>
+        <option value="select">select</option>
+        <option value="noregion">no region</option>
+      </select>
+
+      <label for="editType">edit type:</label>
+      <select id="editType" onchange="document.getElementById('editor').setAttribute('edit-type', event.target.value)" >
+        <option value="insert">insert</option>
+        <option value="overwrite" selected>overwrite</option>
+        <option value="readonly">read-only</option>
+      </select>
+
+      <input type="file" name="uploadFile" id="uploadFile" onchange="document.getElementById('editor').acceptFile(this.files[0])">
+      <button onclick="document.getElementById('uploadFile').click()">upload</button>
+      <!-- <button onclick="console.log(document.getElementById('editor').saveFile())">save</button> -->
+    </div>
+  </div>
+
+  <div id="showcase">
+    <hex-tooltip id="tooltip"></hex-tooltip>
+    <hex-editor
+      id="editor"
+      mode="region"
+      bytes-per-line="4"
+      edit-type="overwrite"
+      display-bin="true"
+    ></hex-editor>
+  </div>
+
+  <div id="regionEditor">
+  </div>
+
+  <script>
+    let container = document.getElementById("regionEditor");
+    let options = {
+      onChange() {
+        document.getElementById("editor").regions = editor.get();
+      }
+    };
+    let editor = new JSONEditor(container, options);
+
+    let json = [
+      {
+        start: 0x0,
+        end: 0x10,
+        name: 'outer layer w/ children',
+        subRegions: [{
+          start: 0x0,
+          end: 0x5,
+          name: '2nd-level child 1',
+          subRegions: [{
+            start: 0x1,
+            end: 0x4,
+            name: '3rd-level child',
+            subRegions: [{
+              start: 0x2,
+              end: 0x3,
+              name: '4th-level child'
+            }]
+          }]
+        }, {
+          start: 0x8,
+          end: 0x10,
+          name: '2nd-level child 2'
+        }]
+      }, {
+        start: 0x10,
+        end: 0x14,
+        name: '2nd outer layer'
+      },
+      {
+        start: 26,
+        end: 60,
+        subRegions: [
+          {
+            start: 28,
+            end: 50
+          }
+        ]
+      },
+      {
+        start: 65,
+        end: 140
+      }
+    ];
+    editor.set(json);
+    document.getElementById("editor").regions = json;
+
+    let chunks = [
+      {
+        start: 0,
+        end: 30
+      },
+      {
+        start: 42,
+        end: 69
+      },
+      {
+        start: 100,
+        end: 200
+      },
+      {
+        start: 256,
+        end: 300
+      }
+    ]
+    document.getElementById("editor").chunks = chunks;
+    document.getElementById("editor").displayAsChunks = false;
+    let fe = document.getElementById("editor");
+
+  </script>
+</body>
+</html>

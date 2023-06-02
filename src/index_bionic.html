@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html dir="ltr" lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0">
+  <title>Stencil Component Starter</title>
+  <script type="module" src="/build/fudgeapps.esm.js"></script>
+  <script nomodule src="/build/fudgeapps.js"></script>
+
+  <link href="https://fonts.googleapis.com/css?family=Open+Sans&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/firacode/6.2.0/fira_code.min.css" integrity="sha512-MbysAYimH1hH2xYzkkMHB6MqxBqfP0megxsCLknbYqHVwXTCg9IqHbk+ZP/vnhO8UEW6PaXAkKe2vQ+SWACxxA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <style>
+    body {
+      height: 100vh;
+      width: 100vw;
+
+      position: relative;
+      display: grid;
+      grid-auto-rows: 100%;
+      grid-template-columns: 350px auto;
+      overflow: scroll;
+
+      align-items: center;
+      justify-items: center;
+      justify-content: center;
+
+      font-family: Arial, Helvetica, sans-serif;
+
+      background: linear-gradient(to top, skyblue 0%, palegoldenrod 100%);
+    }
+
+    body > div.main {
+      width: 50vw;
+      font-size: x-large;
+      background-color: #fff;
+      border-radius: 2px;
+      border: 2px solid #000;
+      box-shadow: 2px 4px 4px #0008;
+      padding: 20px;
+    }
+
+    blockquote {
+      position: relative;
+      font-family: Cambria, Cochin, Georgia, Times, 'Times New Roman', serif;
+      font-style: italic;
+      color: #000A;
+      background-color: aliceblue;
+      margin: 0;
+      padding: 24px 40px;
+    }
+
+    blockquote::before,
+    blockquote::after {
+      display: block;
+      position: absolute;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 60px;
+      color: #0004;
+    }
+    blockquote::before {
+      content: '\201C';
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: 2px;
+      background-color: #0008;
+    }
+    blockquote::after {
+      content: '\201D';
+      bottom: -30px;
+      right: 20px;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: 'Fira Code', monospace;
+      padding: 0;
+      font-size: 80%;
+    }
+    pre {
+      background-color: #0001;
+    }
+  </style>
+</head>
+<body>
+  <div class="main">
+    <to-bionic>
+
+      <h1>Hehe bionic text web component go brrrr</h1>
+      <p>I saw this thing on twitter about 2 hours ago and figured:</p>
+      <blockquote>
+        Wow, it sure would be cool to have that applied to
+        every HTML text node in a website automatically
+      </blockquote>
+      <p>It turns out, thanks to stenciljs, it's pretty easy</p>
+      <blockquote>
+        <button> it even works in buttons! </button>
+      </blockquote>
+
+      <p>
+        All I did was create a web component that goes through and finds
+        each of the textnodes contained within it, breaks it up into chunks
+        and surrounds the relevant chunks with 
+        <span><code>&lt;span&gt;</code></span> tags.
+      </p>
+
+      <p>
+        it goes and does this recursively too - so all I have is something like
+        the following:
+      </p>
+      <pre no-bionic><code>
+        &lt;to-bionic&gt;
+          omg I'm bionicified outside of a div
+          &lt;p&gt;
+            omg i'm bionicified inside of a div
+          &lt;/p&gt;
+          &lt;p no-bionic&gt;
+            no bionic text for me
+          &lt;/p&gt;
+          yep, I still work as intended
+        &lt;/to-bionic&gt;
+      </code></pre>
+
+      <p no-bionic>
+        yes, within tags with a "no-bionic" attribute,
+        this effect is disabled (like it is now)
+      </p>      
+      <script>
+        console.log("yahaha, you found me!");
+      </script>
+      <p>
+        scripts are also ignored - but yes, I'll put this out there a little later.
+      </p>
+      
+    </to-bionic>
+  </div>
+</body>
+</html>

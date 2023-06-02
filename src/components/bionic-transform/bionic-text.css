@@ -1,0 +1,6 @@
+to-bionic:not([disabled]) span[bold] {
+  font-weight: bold !important;
+}
+to-bionic:not([disabled]) span[normal] {
+  font-weight: normal !important;
+}
